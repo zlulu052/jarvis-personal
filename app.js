@@ -1,3 +1,4 @@
+// Jarvis v4.1 - manual tags override AI classification
 const DB_NAME='jarvis_v4_db';
 const DB_VERSION=1;
 const STORES=['entries','plans','summaries','tags','feedback','meta','snapshots'];
@@ -13,6 +14,9 @@ let state={profile:{},entries:[],plans:[],summaries:[],tags:[],feedback:[],pendi
 let activeRecordTag='all';
 let editingEntryId=null;
 let currentPage='dashboard';
+let quickSelectedTagIds=new Set();
+let modalSelectedTagIds=new Set();
+let tagCreateContext='settings';
 
 const DEFAULT_TAGS=[
  {id:'love',name:'感情',color:'#ff9fb5',system:true,keywords:['女友','男友','恋爱','暧昧','喜欢','分手','关系','约会','对象']},
@@ -146,29 +150,65 @@ function tagCatalog(){return state.tags.map(t=>({name:t.name,system:!!t.system})
 function feedbackExamples(){return state.feedback.slice(-30).map(f=>({text:f.text,before:f.before,after:f.after}))}
 function activePlansForAI(){return state.plans.filter(p=>p.status!=='done').slice(-8).map(p=>({title:p.title||p.goal,goal:p.goal,progress:p.progress||0,status:p.status,spec:p.spec}))}
 
-function buildEntry(text,metrics={},status='note'){
- return {id:uid(),createdAt:nowISO(),updatedAt:nowISO(),text:text.trim(),title:text.trim().slice(0,28)||'新记录',status,importance:'low',tagIds:localGuessTagIds(text),metrics:cleanMetrics(metrics),analysis:null,analysisRaw:'',followups:[]};
+function buildEntry(text,metrics={},status='note',manualTagIds=[]){
+ const chosen=[...new Set(manualTagIds||[])].filter(id=>tagById(id));
+ return {id:uid(),createdAt:nowISO(),updatedAt:nowISO(),text:text.trim(),title:text.trim().slice(0,28)||'新记录',status,importance:'low',tagIds:chosen.length?chosen:localGuessTagIds(text),manualTagOverride:chosen.length>0,metrics:cleanMetrics(metrics),analysis:null,analysisRaw:'',followups:[]};
 }
+
+function renderManualTagPicker(targetId,selectedSet){
+ const el=$(targetId);if(!el)return;
+ const tags=[...state.tags].sort((a,b)=>Number(b.system)-Number(a.system)||a.name.localeCompare(b.name,'zh-CN'));
+ el.innerHTML=(selectedSet.size===0?'<span class="auto-tag-note">✨ 当前：AI 自动分类</span>':'')+
+ tags.map(t=>`<button type="button" class="manual-tag-option ${selectedSet.has(t.id)?'active':''}" data-id="${t.id}" style="--tag-color:${t.color}">${escapeHTML(t.name)}</button>`).join('');
+ el.querySelectorAll('.manual-tag-option').forEach(btn=>btn.onclick=()=>{
+   const id=btn.dataset.id;
+   if(selectedSet.has(id))selectedSet.delete(id);else selectedSet.add(id);
+   renderManualTagPicker(targetId,selectedSet);
+ });
+}
+function renderComposerTagPickers(){
+ renderManualTagPicker('#quickTagPicker',quickSelectedTagIds);
+ renderManualTagPicker('#modalTagPicker',modalSelectedTagIds);
+}
+function resetComposerTags(source='dashboard'){
+ if(source==='modal')modalSelectedTagIds.clear();else quickSelectedTagIds.clear();
+ renderComposerTagPickers();
+}
+function openCreateTag(context='settings'){
+ tagCreateContext=context;
+ $('#newTagName').value='';
+ openModal('tagCreateModal');
+}
+
 function clearComposer(){
  $('#quickText').value='';for(const id of ['#metricMood','#metricEnergy','#metricStress','#metricSleep','#metricWeight'])$(id).value='';
+ quickSelectedTagIds.clear();renderComposerTagPickers();
 }
 async function saveOnly(text,metrics={},source='dashboard'){
  if(!text.trim())return;
- const e=buildEntry(text,metrics,'note');await saveEntry(e);clearComposer();renderAll();
- if(source==='modal'){closeModal('recordModal');$('#recordModalText').value='';setStatus('#recordModalStatus','已实时保存到手机本地。','success')}else{setStatus('#composerStatus','已实时保存到手机本地。','success')}
+ const selected=source==='modal'?[...modalSelectedTagIds]:[...quickSelectedTagIds];
+ const e=buildEntry(text,metrics,'note',selected);await saveEntry(e);
+ if(source==='modal'){closeModal('recordModal');$('#recordModalText').value='';modalSelectedTagIds.clear();renderComposerTagPickers();setStatus('#recordModalStatus','已实时保存到手机本地。','success')}else{clearComposer();setStatus('#composerStatus','已实时保存到手机本地。','success')}
+ renderAll();
 }
 async function analyzeText(text,metrics={},source='dashboard'){
  if(!text.trim())return;
  const statusSel=source==='modal'?'#recordModalStatus':'#composerStatus';
  setStatus(statusSel,'已先保存到本地，正在检索相关历史并分析…');
- const entry=buildEntry(text,metrics,'processing');await saveEntry(entry);
+ const selected=source==='modal'?[...modalSelectedTagIds]:[...quickSelectedTagIds];
+ const entry=buildEntry(text,metrics,'processing',selected);await saveEntry(entry);
  try{
   const h=selectHistory(text,entry.id);
   const d=await api('/api/analyze',{profile:state.profile,summaries:state.summaries.slice(-8),active_plans:activePlansForAI(),pending:null,mode:h.mode,recent:serializeEntries(h.recent),relevant:serializeEntries(h.relevant),text,tag_catalog:tagCatalog(),tag_feedback:feedbackExamples()});
-  entry.title=d.title||entry.title;entry.tagIds=tagIdsFromNames(d.tags||[])||entry.tagIds; if(!entry.tagIds.length)entry.tagIds=localGuessTagIds(text);entry.metrics=mergeMetrics(entry.metrics,cleanMetrics(d.metrics||{}));entry.importance=d.importance||entry.importance;
+  entry.title=d.title||entry.title;
+  if(!entry.manualTagOverride){
+    const aiTags=tagIdsFromNames(d.tags||[]);
+    entry.tagIds=aiTags.length?aiTags:localGuessTagIds(text);
+  }
+  entry.metrics=mergeMetrics(entry.metrics,cleanMetrics(d.metrics||{}));entry.importance=d.importance||entry.importance;
   if(d.need_clarification){entry.status='pending';await saveEntry(entry);await setPending({entryId:entry.id,questions:d.questions||[],createdAt:nowISO()});openPendingModal();setStatus(statusSel,'关键信息不足：已暂停判断，等待你补充。','success')}
   else{entry.status='analyzed';entry.brief=d.brief||'';entry.analysis=d.analysis||null;await saveEntry(entry);await setPending(null);openAnalysis(entry.id);setStatus(statusSel,'分析完成，并已保存到本地。','success')}
-  if(source==='modal'){closeModal('recordModal');$('#recordModalText').value=''}else clearComposer();renderAll();
+  if(source==='modal'){closeModal('recordModal');$('#recordModalText').value='';modalSelectedTagIds.clear();renderComposerTagPickers()}else clearComposer();renderAll();
  }catch(err){entry.status='note';await saveEntry(entry);setStatus(statusSel,`分析失败，但记录已经保存在手机里：${err.message}`,'error');renderAll()}
 }
 async function submitPending(){
@@ -178,7 +218,9 @@ async function submitPending(){
  const combined=`【原始问题】\n${entry.text}\n\n【Jarvis此前追问】\n${(p.questions||[]).map((q,i)=>`${i+1}. ${q.question||q}`).join('\n')}\n\n【用户补充】\n${reply}`;
  try{
   const h=selectHistory(combined,entry.id);const d=await api('/api/analyze',{profile:state.profile,summaries:state.summaries.slice(-8),active_plans:activePlansForAI(),pending:p.questions||[],mode:'deep',recent:serializeEntries(h.recent),relevant:serializeEntries(h.relevant),text:combined,followup:true,tag_catalog:tagCatalog(),tag_feedback:feedbackExamples()});
-  entry.title=d.title||entry.title;const aiTags=tagIdsFromNames(d.tags||[]);if(aiTags.length)entry.tagIds=aiTags;entry.metrics=mergeMetrics(entry.metrics,cleanMetrics(d.metrics||{}));entry.importance=d.importance||entry.importance;
+  entry.title=d.title||entry.title;
+  if(!entry.manualTagOverride){const aiTags=tagIdsFromNames(d.tags||[]);if(aiTags.length)entry.tagIds=aiTags;}
+  entry.metrics=mergeMetrics(entry.metrics,cleanMetrics(d.metrics||{}));entry.importance=d.importance||entry.importance;
   if(d.need_clarification){entry.status='pending';await saveEntry(entry);await setPending({entryId:entry.id,questions:d.questions||[],createdAt:nowISO()});$('#pendingReply').value='';renderPendingModal();setStatus('#pendingStatus','还缺少少量关键事实，新的问题已保存。')}
   else{entry.status='analyzed';entry.brief=d.brief||'';entry.analysis=d.analysis||null;await saveEntry(entry);await setPending(null);$('#pendingReply').value='';closeModal('pendingModal');openAnalysis(entry.id)}
   renderAll();
@@ -209,7 +251,7 @@ function renderTimelineCard(e,full=false){
  <div class="record-top"><div style="display:flex;gap:9px"><span class="importance-dot ${importanceClass(e.importance)}"></span><div><div class="record-title">${escapeHTML(e.title||e.text.slice(0,28))}</div><div class="record-time">${date.toLocaleString()}</div></div></div><span class="status-badge">${e.status==='pending'?'待补充':e.status==='analyzed'?'已分析':e.status==='processing'?'分析中':'记录'}</span></div>
  <div class="record-text">${escapeHTML(e.text)}</div><div class="record-tags">${renderTagChips(e.tagIds)}</div>${metricPills(e.metrics)?`<div class="metric-pills">${metricPills(e.metrics)}</div>`:''}
  ${analysisSummary(e)?`<div class="analysis-preview">${escapeHTML(analysisSummary(e)).slice(0,220)}${analysisSummary(e).length>220?'…':''}</div>`:''}
- ${full?`<div class="record-actions"><button class="ghost-btn view-analysis" data-id="${e.id}">${e.status==='analyzed'?'查看分析':'查看详情'}</button><button class="ghost-btn edit-tags" data-id="${e.id}">编辑标签</button>${e.status==='pending'?`<button class="ghost-btn continue-pending" data-id="${e.id}">继续回答</button>`:''}<button class="ghost-btn delete-entry" data-id="${e.id}">删除</button></div>`:''}
+ ${full?`<div class="record-actions"><button class="ghost-btn view-analysis" data-id="${e.id}">${e.status==='analyzed'?'查看分析':'查看详情'}</button><button class="ghost-btn edit-tags" data-id="${e.id}">编辑标签</button>${e.status==='pending'?`<button class="ghost-btn continue-pending" data-id="${e.id}">继续回答</button>`:''}<button class="ghost-btn delete-entry" data-id="${e.id}">删除</button></div>`:`<div class="record-actions"><button class="ghost-btn edit-tags" data-id="${e.id}">改标签</button>${e.status==='analyzed'?`<button class="ghost-btn view-analysis" data-id="${e.id}">看分析</button>`:''}</div>`}
  </article>`
 }
 function bindRecordActions(root=document){
@@ -231,10 +273,24 @@ function openAnalysis(id){const e=state.entries.find(x=>x.id===id);if(!e)return;
 
 async function deleteEntry(id){if(!confirm('删除这条记录？这个操作会从手机本地数据库中删除。'))return;await dbDelete('entries',id);state.entries=state.entries.filter(e=>e.id!==id);if(state.pending?.entryId===id)await setPending(null);renderAll();}
 
-function openTagEditor(id){editingEntryId=id;const e=state.entries.find(x=>x.id===id);if(!e)return;$('#tagEditChoices').innerHTML=state.tags.map(t=>`<label class="tag-choice"><input type="checkbox" value="${t.id}" ${(e.tagIds||[]).includes(t.id)?'checked':''}><span style="border-color:${t.color}44">${escapeHTML(t.name)}</span></label>`).join('');openModal('tagEditModal')}
+function openTagEditor(id){editingEntryId=id;tagCreateContext='edit';const e=state.entries.find(x=>x.id===id);if(!e)return;$('#tagEditChoices').innerHTML=state.tags.map(t=>`<label class="tag-choice"><input type="checkbox" value="${t.id}" ${(e.tagIds||[]).includes(t.id)?'checked':''}><span style="border-color:${t.color}44">${escapeHTML(t.name)}</span></label>`).join('');openModal('tagEditModal')}
 async function saveEditedTags(){
- const e=state.entries.find(x=>x.id===editingEntryId);if(!e)return;const before=(e.tagIds||[]).map(tagName);const selected=$$('#tagEditChoices input:checked').map(x=>x.value);e.tagIds=selected.length?selected:['daily'];await saveEntry(e);const after=e.tagIds.map(tagName);if(JSON.stringify(before)!==JSON.stringify(after)){const f={id:uid(),createdAt:nowISO(),entryId:e.id,text:e.text,before,after};await dbPut('feedback',f);state.feedback.push(f)}closeModal('tagEditModal');renderAll();}
-async function createTag(){const name=$('#newTagName').value.trim(),color=$('#newTagColor').value;if(!name)return;if(state.tags.some(t=>t.name===name)){alert('这个标签已经存在');return}const t={id:`custom-${uid()}`,name,color,system:false,keywords:[]};await dbPut('tags',t);state.tags.push(t);$('#newTagName').value='';closeModal('tagCreateModal');renderAll();}
+ const e=state.entries.find(x=>x.id===editingEntryId);if(!e)return;const before=(e.tagIds||[]).map(tagName);const selected=$$('#tagEditChoices input:checked').map(x=>x.value);e.tagIds=selected.length?selected:['daily'];e.manualTagOverride=true;await saveEntry(e);const after=e.tagIds.map(tagName);if(JSON.stringify(before)!==JSON.stringify(after)){const f={id:uid(),createdAt:nowISO(),entryId:e.id,text:e.text,before,after};await dbPut('feedback',f);state.feedback.push(f)}closeModal('tagEditModal');renderAll();}
+async function createTag(){
+ const name=$('#newTagName').value.trim(),color=$('#newTagColor').value;if(!name)return;
+ const existing=state.tags.find(t=>t.name===name);
+ if(existing){
+   if(tagCreateContext==='quick')quickSelectedTagIds.add(existing.id);
+   if(tagCreateContext==='modal')modalSelectedTagIds.add(existing.id);
+   alert('这个标签已经存在。');
+   closeModal('tagCreateModal');renderComposerTagPickers();return;
+ }
+ const t={id:`custom-${uid()}`,name,color,system:false,keywords:[]};await dbPut('tags',t);state.tags.push(t);
+ if(tagCreateContext==='quick')quickSelectedTagIds.add(t.id);
+ if(tagCreateContext==='modal')modalSelectedTagIds.add(t.id);
+ $('#newTagName').value='';closeModal('tagCreateModal');renderAll();renderComposerTagPickers();
+ if(tagCreateContext==='edit'&&editingEntryId)openTagEditor(editingEntryId);
+}
 async function renameTag(id){const t=tagById(id);if(!t)return;const name=prompt('新的标签名称：',t.name);if(!name||name.trim()===t.name)return;if(state.tags.some(x=>x.id!==id&&x.name===name.trim())){alert('已有同名标签');return}t.name=name.trim();await dbPut('tags',t);renderAll()}
 async function deleteTag(id){const t=tagById(id);if(!t||t.system){alert('系统标签不能删除，可以通过编辑记录改用其他标签。');return}if(!confirm(`删除标签“${t.name}”？记录不会被删除。`))return;await dbDelete('tags',id);state.tags=state.tags.filter(x=>x.id!==id);for(const e of state.entries){if((e.tagIds||[]).includes(id)){e.tagIds=e.tagIds.filter(x=>x!==id);if(!e.tagIds.length)e.tagIds=['daily'];await dbPut('entries',e)}}renderAll()}
 
@@ -252,6 +308,7 @@ function recentEntries(days){return state.entries.filter(e=>(Date.now()-new Date
 function renderDashboard(){
  const monthStart=new Date();monthStart.setDate(1);monthStart.setHours(0,0,0,0);$('#statMonth').textContent=state.entries.filter(e=>new Date(e.createdAt)>=monthStart).length;$('#statStreak').textContent=streakDays();$('#statPlans').textContent=state.plans.filter(p=>p.status!=='done').length;const c=tagCounts(recentEntries(30)),top=Object.entries(c).sort((a,b)=>b[1]-a[1])[0];$('#statTopTag').textContent=top?tagName(top[0]):'—';
  const recent=[...state.entries].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).slice(0,5);$('#dashboardTimeline').innerHTML=recent.length?recent.map(e=>renderTimelineCard(e,false)).join(''):'<div class="muted-copy">还没有记录。先写下今天发生的第一件事。</div>';
+ bindRecordActions($('#dashboardTimeline'));
  renderPendingMini();renderFocusSummary();renderTagBars('#dashboardTagBars',recentEntries(30));renderTrend('#dashboardTrendCanvas','#dashboardTrendEmpty',$('#dashboardMetricSelect').value,recentEntries(30));
  const name=state.profile.name?.trim();$('#greetingTitle').textContent=name?`${name}，今天发生了什么？`:'今天想记录什么？';
 }
@@ -288,14 +345,15 @@ async function createSnapshot(auto=false){const data=await collectBackup(),snap=
 let snapshotTimer=null;function scheduleLocalSnapshot(){if(snapshotTimer)clearTimeout(snapshotTimer);snapshotTimer=setTimeout(async()=>{const last=await metaGet('last_snapshot_at',null);if(!last||Date.now()-new Date(last)>6*3600000)createSnapshot(true)},1200)}
 async function restoreSnapshot(){const all=(await dbGetAll('snapshots')).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));if(!all.length){setStatus('#backupStatus','还没有本地恢复点。');return}const s=all[0];if(!confirm(`恢复到 ${new Date(s.createdAt).toLocaleString()} 的本地恢复点？当前数据会被替换。`))return;await applyBackupData(s.data);setStatus('#backupStatus','已恢复最近的本地恢复点。','success')}
 
-function renderAll(){renderDashboard();renderRecords();renderPlans();renderInsights();renderSettings()}
+function renderAll(){renderDashboard();renderRecords();renderPlans();renderInsights();renderSettings();renderComposerTagPickers()}
 
 function bindEvents(){
  $$('[data-page]').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.page)));$$('[data-goto]').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.goto)));$$('[data-close]').forEach(b=>b.addEventListener('click',()=>closeModal(b.dataset.close)));$$('.modal-backdrop').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)closeModal(m.id)}));
- $('#quickAddTop').onclick=()=>openModal('recordModal');$('#newRecordBtn').onclick=()=>openModal('recordModal');
+ $('#quickAddTop').onclick=()=>{modalSelectedTagIds.clear();renderComposerTagPickers();openModal('recordModal')};$('#newRecordBtn').onclick=()=>{modalSelectedTagIds.clear();renderComposerTagPickers();openModal('recordModal')};
  $('#saveOnlyBtn').onclick=()=>saveOnly($('#quickText').value,manualMetrics());$('#analyzeBtn').onclick=()=>analyzeText($('#quickText').value,manualMetrics());
  $('#modalSaveOnly').onclick=()=>saveOnly($('#recordModalText').value,{},'modal');$('#modalAnalyze').onclick=()=>analyzeText($('#recordModalText').value,{},'modal');
- $('#submitPendingBtn').onclick=submitPending;$('#saveEntryTagsBtn').onclick=saveEditedTags;$('#newTagBtn').onclick=()=>openModal('tagCreateModal');$('#createTagBtn').onclick=createTag;
+ $('#quickNewTagBtn').onclick=()=>openCreateTag('quick');$('#modalNewTagBtn').onclick=()=>openCreateTag('modal');
+ $('#submitPendingBtn').onclick=submitPending;$('#saveEntryTagsBtn').onclick=saveEditedTags;$('#newTagBtn').onclick=()=>openCreateTag('settings');$('#tagEditNewTagBtn').onclick=()=>openCreateTag('edit');$('#createTagBtn').onclick=createTag;
  $('#recordSearch').oninput=renderRecords;$('#recordRange').onchange=renderRecords;$('#recordStatus').onchange=renderRecords;
  $('#dashboardMetricSelect').onchange=renderDashboard;$('#insightMetricSelect').onchange=renderInsights;$('#insightRange').onchange=renderInsights;$('#aiInsightBtn').onclick=aiInsights;
  $('#openPlanCreateBtn').onclick=()=>openModal('planCreateModal');$('#createPlanBtn').onclick=createPlan;

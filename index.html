@@ -10,7 +10,7 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/icon-180.png">
 <link rel="stylesheet" href="/app.css">
-<title>Jarvis 4</title>
+<title>Jarvis 4.1</title>
 </head>
 <body>
 <div class="app-shell">
@@ -18,7 +18,7 @@
     <div class="brand-wrap">
       <div class="brand-orb" aria-hidden="true"></div>
       <div>
-        <div class="brand">JARVIS <span class="version">4.0</span></div>
+        <div class="brand">JARVIS <span class="version">4.1</span></div>
         <div class="subtitle">PERSONAL INTELLIGENCE SYSTEM</div>
       </div>
     </div>
@@ -44,6 +44,16 @@
           <h1 id="greetingTitle">今天想记录什么？</h1>
           <p class="hero-copy">随手写发生了什么。Jarvis 会保存、分类、分析，并把长期变化留在你的个人数据库里。</p>
           <textarea id="quickText" class="hero-input" placeholder="例如：今天中午和同事吃饭，下午特别困；晚上练了40分钟力量，心情比昨天好。"></textarea>
+          <div class="composer-tag-box">
+            <div class="composer-tag-head">
+              <div>
+                <div class="composer-tag-title">标签</div>
+                <div class="composer-tag-hint">不选择＝Jarvis 自动分类；手动选择后，以你的分类为准。</div>
+              </div>
+              <button class="tag-add-inline" id="quickNewTagBtn" type="button">＋ 新标签</button>
+            </div>
+            <div class="manual-tag-picker" id="quickTagPicker"></div>
+          </div>
           <details class="metric-details">
             <summary>补充量化状态（可选）</summary>
             <div class="metric-grid">
@@ -272,7 +282,10 @@
     <button class="modal-close" data-close="tagEditModal">×</button>
     <div class="eyebrow">分类纠错</div><h2>编辑这条记录的标签</h2>
     <div id="tagEditChoices" class="tag-choice-grid"></div>
-    <button class="primary-btn" id="saveEntryTagsBtn">保存标签</button>
+    <div class="modal-actions">
+      <button class="secondary-btn" id="tagEditNewTagBtn" type="button">＋ 新建标签</button>
+      <button class="primary-btn" id="saveEntryTagsBtn">保存标签</button>
+    </div>
   </div>
 </div>
 
@@ -291,6 +304,16 @@
     <button class="modal-close" data-close="recordModal">×</button>
     <div class="eyebrow">QUICK LOG</div><h2>新记录</h2>
     <textarea id="recordModalText" class="tall" placeholder="今天发生了什么？"></textarea>
+    <div class="composer-tag-box modal-tag-box">
+      <div class="composer-tag-head">
+        <div>
+          <div class="composer-tag-title">标签</div>
+          <div class="composer-tag-hint">不选则自动分类；你的手动分类不会被 AI 覆盖。</div>
+        </div>
+        <button class="tag-add-inline" id="modalNewTagBtn" type="button">＋ 新标签</button>
+      </div>
+      <div class="manual-tag-picker" id="modalTagPicker"></div>
+    </div>
     <div class="modal-actions"><button class="secondary-btn" id="modalSaveOnly">仅记录</button><button class="primary-btn" id="modalAnalyze">记录并分析</button></div>
     <div class="status-line" id="recordModalStatus"></div>
   </div>
