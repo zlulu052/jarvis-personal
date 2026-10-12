@@ -9,7 +9,10 @@ function parseJSON(s){
 export default async function handler(req,res){
  if(req.method!=="POST")return res.status(405).json({error:"Method not allowed"});
  const key=process.env.OPENAI_API_KEY;
+ const base=(process.env.OPENAI_API_BASE||"https://api.openai-proxy.org/v1").replace(/\/$/,"");
+ const model=process.env.OPENAI_MODEL;
  if(!key)return res.status(500).json({error:"服务器尚未配置 OPENAI_API_KEY"});
+ if(!model)return res.status(500).json({error:"服务器尚未配置 OPENAI_MODEL"});
  try{
   const b=req.body||{};
   const highStakes=/女友|男友|恋爱|感情|分手|婚姻|离婚|辞职|换工作|职业|买房|买车|借钱|投资|债务|重大消费|人生规划|健康|症状|用药|治疗/.test(String(b.text||""));
