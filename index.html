@@ -8,29 +8,205 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Jarvis">
 <link rel="manifest" href="/manifest.webmanifest">
-<title>Jarvis 2</title>
+<title>Jarvis 3.3</title>
+
 <style>
-:root{--bg:#0b0f14;--panel:#121821;--line:#202a36;--text:#eef4fb;--muted:#8ea0b4;--btn:#eaf1f8}
+:root{
+  --bg:#071018;
+  --bg2:#0b1620;
+  --panel:rgba(16,29,41,.78);
+  --panel-strong:rgba(12,24,35,.96);
+  --line:rgba(121,185,220,.16);
+  --line-strong:rgba(120,209,255,.30);
+  --text:#f2f7fb;
+  --muted:#8ea8bb;
+  --muted2:#6f8798;
+  --accent:#73d7ff;
+  --accent2:#9ce8ff;
+  --good:#79e2ad;
+  --warn:#ffd27a;
+  --shadow:0 18px 60px rgba(0,0,0,.30);
+}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
-.app{max-width:780px;margin:auto;padding:calc(env(safe-area-inset-top) + 18px) 16px calc(env(safe-area-inset-bottom) + 70px)}
-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}.brand{font-size:24px;font-weight:800}.sub,.small,.label,.status{color:var(--muted)}.sub,.small,.label,.status{font-size:12px}.sub{margin-top:4px}.dot{width:9px;height:9px;border-radius:50%;background:#8be0b0;box-shadow:0 0 12px #8be0b0}
-.tabs{display:flex;gap:8px;overflow:auto;margin-bottom:14px}.tab{white-space:nowrap;background:#151c25;border:1px solid var(--line);color:#cbd6e3;padding:10px 14px;border-radius:999px;font-weight:700}.tab.active{background:#eaf1f8;color:#0b0f14}
-.card{background:#111821;border:1px solid var(--line);border-radius:20px;padding:16px;margin-bottom:14px}
-textarea,input,select{width:100%;border:1px solid #263241;background:#0a0f15;color:var(--text);border-radius:15px;padding:14px;font-size:16px;outline:none}
-textarea{min-height:130px;resize:vertical;line-height:1.55}.tall{min-height:180px}
-button{border:0;border-radius:15px;padding:13px 16px;font-size:15px;font-weight:750}.primary{width:100%;margin-top:10px;background:var(--btn);color:#0b0f14}.secondary{background:#1b2430;color:#dce7f3;border:1px solid #283646}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.wide{grid-column:1/-1}.row{display:flex;gap:9px}.row>*{flex:1}.hidden{display:none!important}
-.label{margin:0 0 10px 2px}.status{min-height:20px;margin-top:9px}.analysis,.planpre{white-space:pre-wrap;line-height:1.7}.analysis{font-size:15px}.planpre{font-size:13px;color:#d9e3ee}
-.item{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}.item:first-child{border-top:0;padding-top:0;margin-top:0}.time{font-size:11px;color:#718297;margin-bottom:6px}.entry{font-size:14px;line-height:1.55}
-.plan{border:1px solid #263242;border-radius:18px;padding:14px;margin-top:12px;background:#0d131a}.plan h3{margin:0 0 8px;font-size:17px}.bar{height:8px;background:#1d2631;border-radius:999px;overflow:hidden}.bar>div{height:100%;background:#dfe9f5}.metric{font-size:12px;color:#a8b6c7;margin:8px 0}.pill{display:inline-block;padding:5px 9px;border-radius:999px;background:#1e2834;color:#bcc9d8;font-size:11px;margin:5px 5px 0 0}
-h2{font-size:18px;margin:0 0 12px}
-@media(max-width:600px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}.row{flex-direction:column}}
+html{background:var(--bg)}
+body{
+  margin:0;color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  background:
+    radial-gradient(circle at 18% -10%, rgba(65,165,210,.18), transparent 34%),
+    radial-gradient(circle at 90% 8%, rgba(73,221,182,.10), transparent 26%),
+    linear-gradient(180deg,var(--bg2),var(--bg) 54%);
+  min-height:100vh;
+}
+body:before{
+  content:"";position:fixed;inset:0;pointer-events:none;opacity:.17;
+  background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
+  background-size:34px 34px;
+  mask-image:linear-gradient(to bottom,black,transparent 75%);
+}
+.app{
+  width:min(980px,100%);
+  margin:auto;
+  padding:calc(env(safe-area-inset-top) + 28px) 22px calc(env(safe-area-inset-bottom) + 72px);
+  position:relative;
+}
+header{
+  display:flex;justify-content:space-between;align-items:center;
+  margin:0 2px 22px;padding:4px 0;
+}
+.brand-wrap{display:flex;align-items:center;gap:14px}
+.brand-orb{
+  width:42px;height:42px;border-radius:50%;
+  background:radial-gradient(circle at 36% 34%,#e9fbff 0 4%,#8de8ff 7%,#269ccc 28%,#0a2b3c 58%,#071018 72%);
+  box-shadow:0 0 34px rgba(98,218,255,.42), inset 0 0 18px rgba(255,255,255,.14);
+  border:1px solid rgba(169,235,255,.38);
+}
+.brand{font-size:25px;font-weight:820;letter-spacing:.8px}
+.sub{color:var(--muted);font-size:12px;margin-top:4px;letter-spacing:.25px}
+.status-chip{
+  display:flex;align-items:center;gap:8px;padding:8px 11px;border-radius:999px;
+  border:1px solid rgba(121,226,173,.22);background:rgba(67,154,111,.10);
+  color:#a8ebc7;font-size:12px;font-weight:700;
+}
+.dot{
+  width:8px;height:8px;border-radius:50%;background:var(--good);
+  box-shadow:0 0 14px rgba(121,226,173,.95);
+}
+.tabs{
+  display:flex;gap:8px;overflow:auto;margin:0 0 18px;padding:5px;
+  border:1px solid var(--line);background:rgba(8,20,29,.54);
+  border-radius:18px;backdrop-filter:blur(18px);
+  position:sticky;top:10px;z-index:20;
+  box-shadow:0 10px 34px rgba(0,0,0,.14);
+}
+.tab{
+  flex:1;min-width:max-content;white-space:nowrap;
+  background:transparent;border:1px solid transparent;color:#98afc0;
+  padding:11px 15px;border-radius:13px;font-weight:760;font-size:14px;
+  transition:.18s ease;cursor:pointer;
+}
+.tab:hover{color:#dff6ff;background:rgba(115,215,255,.06)}
+.tab.active{
+  background:linear-gradient(180deg,rgba(132,224,255,.18),rgba(85,177,213,.10));
+  color:#e8f9ff;border-color:rgba(126,219,255,.27);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 6px 18px rgba(0,0,0,.14);
+}
+.card{
+  background:linear-gradient(180deg,rgba(16,30,43,.82),rgba(11,24,35,.80));
+  border:1px solid var(--line);
+  border-radius:24px;padding:20px;margin-bottom:16px;
+  box-shadow:var(--shadow);
+  backdrop-filter:blur(20px);
+}
+#tab-chat>.card:first-child{
+  border-color:rgba(115,215,255,.23);
+  background:
+    radial-gradient(circle at 92% 0%,rgba(79,187,231,.11),transparent 34%),
+    linear-gradient(180deg,rgba(17,33,47,.90),rgba(10,23,34,.88));
+}
+textarea,input,select{
+  width:100%;border:1px solid rgba(118,174,204,.18);
+  background:rgba(4,13,20,.72);color:var(--text);
+  border-radius:16px;padding:14px 15px;font-size:16px;outline:none;
+  transition:border .18s,box-shadow .18s,background .18s;
+}
+textarea::placeholder,input::placeholder{color:#566c7d}
+textarea:focus,input:focus,select:focus{
+  border-color:rgba(115,215,255,.58);
+  box-shadow:0 0 0 3px rgba(115,215,255,.08);
+  background:rgba(4,14,21,.90);
+}
+textarea{min-height:130px;resize:vertical;line-height:1.68}
+.tall{min-height:200px}
+button{
+  border:0;border-radius:15px;padding:13px 16px;font-size:15px;font-weight:790;
+  cursor:pointer;transition:transform .12s ease,box-shadow .18s ease,opacity .18s;
+}
+button:active{transform:scale(.985)}
+button:disabled{opacity:.55;cursor:wait}
+.primary{
+  width:100%;margin-top:12px;color:#031019;
+  background:linear-gradient(135deg,#b7efff,#70d6ff 56%,#8fe6cf);
+  box-shadow:0 10px 28px rgba(65,184,227,.22);
+}
+.primary:hover{box-shadow:0 13px 34px rgba(65,184,227,.30)}
+.secondary{
+  background:rgba(24,43,57,.84);color:#d8edf6;
+  border:1px solid rgba(121,185,220,.17);
+}
+.secondary:hover{background:rgba(31,53,68,.92)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.wide{grid-column:1/-1}
+.row{display:flex;gap:10px}.row>*{flex:1}
+.hidden{display:none!important}
+.label{
+  margin:0 0 11px 2px;color:#a6c0d1;font-size:12px;font-weight:720;
+  letter-spacing:.18px;text-transform:none;
+}
+.status{min-height:20px;margin-top:10px;color:#7fa1b7;font-size:12px}
+.analysis,.planpre{white-space:pre-wrap;line-height:1.78}
+.analysis{font-size:15px;color:#deedf4}
+#answerCard{
+  border-color:rgba(126,226,173,.22);
+  background:linear-gradient(180deg,rgba(14,35,38,.78),rgba(11,27,34,.86));
+}
+#answerCard .label{color:#9be2bd}
+#pendingCard{
+  border-color:rgba(255,210,122,.24);
+  background:linear-gradient(180deg,rgba(45,36,20,.52),rgba(19,28,35,.90));
+}
+#pendingCard .label{color:#f2d18c}
+.item{
+  border-top:1px solid rgba(121,185,220,.11);
+  padding-top:14px;margin-top:14px;
+}
+.item:first-child{border-top:0;padding-top:0;margin-top:0}
+.time{font-size:11px;color:#6f8798;margin-bottom:7px}
+.entry{font-size:14px;line-height:1.62;color:#d8e7ef}
+.plan{
+  border:1px solid rgba(115,215,255,.17);
+  border-radius:20px;padding:16px;margin-top:14px;
+  background:linear-gradient(180deg,rgba(10,24,34,.92),rgba(7,18,27,.88));
+}
+.plan h3{margin:0 0 8px;font-size:17px}
+.bar{height:9px;background:rgba(255,255,255,.055);border-radius:999px;overflow:hidden;border:1px solid rgba(255,255,255,.035)}
+.bar>div{height:100%;background:linear-gradient(90deg,#70d6ff,#84e8c1);box-shadow:0 0 18px rgba(112,214,255,.30)}
+.metric{font-size:12px;color:#9ab1c1;margin:9px 0}
+.pill{
+  display:inline-block;padding:5px 9px;border-radius:999px;
+  background:rgba(79,150,181,.11);color:#b9d9e7;
+  border:1px solid rgba(108,191,225,.12);
+  font-size:11px;margin:5px 5px 0 0;
+}
+.small{color:#839bad;font-size:12px;line-height:1.65}
+h2{font-size:19px;margin:0 0 12px;letter-spacing:.15px}
+details summary{cursor:pointer;color:#b9cfdb}
+footer{}
+body::-webkit-scrollbar{width:10px}
+body::-webkit-scrollbar-thumb{background:#1c3342;border-radius:999px;border:2px solid var(--bg)}
+@media(max-width:700px){
+  .app{padding:calc(env(safe-area-inset-top) + 18px) 14px calc(env(safe-area-inset-bottom) + 64px)}
+  .brand-orb{width:36px;height:36px}
+  .brand{font-size:22px}
+  .status-chip{padding:7px 9px}
+  .grid{grid-template-columns:1fr}.wide{grid-column:auto}
+  .row{flex-direction:column}
+  .card{border-radius:20px;padding:16px}
+  .tabs{top:8px;border-radius:16px}
+  .tab{padding:10px 12px}
+}
 </style>
+
 </head>
 <body>
 <div class="app">
-<header><div><div class="brand">JARVIS 3.1</div><div class="sub">分析 · 记忆 · 计划 · 推进</div></div><div class="dot"></div></header>
+<header>
+<div class="brand-wrap">
+  <div class="brand-orb" aria-hidden="true"></div>
+  <div><div class="brand">JARVIS 3.3</div><div class="sub">PERSONAL INTELLIGENCE SYSTEM · 分析 · 记忆 · 计划 · 推进</div></div>
+</div>
+<div class="status-chip"><div class="dot"></div><span>ONLINE</span></div>
+</header>
 <div class="tabs">
 <button class="tab active" data-tab="chat">管家</button>
 <button class="tab" data-tab="plans">长期计划</button>
@@ -40,9 +216,9 @@ h2{font-size:18px;margin:0 0 12px}
 
 <section id="tab-chat">
 <div class="card">
-<div class="label">告诉我发生了什么，或者直接问“我该怎么办”</div>
+<div class="label">今天想让我帮你处理什么？</div>
 <textarea id="input" class="tall" placeholder="例如：我最近总想开始健身，但每次坚持三四天就停了。&#10;&#10;也可以直接写：今天跑了3公里，感觉状态不错。"></textarea>
-<button class="primary" id="send">告诉贾维斯</button>
+<button class="primary" id="send">开始分析</button>
 <div id="status" class="status"></div>
 </div>
 <div class="card hidden" id="pendingCard">
@@ -53,7 +229,7 @@ h2{font-size:18px;margin:0 0 12px}
 <div id="pendingStatus" class="status"></div>
 </div>
 <div class="card hidden" id="answerCard"><div class="label">Jarvis 的判断</div><div id="answer" class="analysis"></div></div>
-<div class="card"><div class="label">最近记录</div><div id="history"></div></div>
+<div class="card"><div class="label">最近对话与记录</div><div id="history"></div></div>
 </section>
 
 <section id="tab-plans" class="hidden">
