@@ -1,0 +1,16 @@
+{
+  "functions": {
+    "api/analyze.js": {
+      "maxDuration": 60
+    },
+    "api/plan.js": {
+      "maxDuration": 60
+    },
+    "api/progress.js": {
+      "maxDuration": 60
+    },
+    "api/summarize.js": {
+      "maxDuration": 60
+    }
+  }
+}
