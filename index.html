@@ -30,7 +30,7 @@ h2{font-size:18px;margin:0 0 12px}
 </head>
 <body>
 <div class="app">
-<header><div><div class="brand">JARVIS 2</div><div class="sub">分析 · 记忆 · 计划 · 推进</div></div><div class="dot"></div></header>
+<header><div><div class="brand">JARVIS 3.1</div><div class="sub">分析 · 记忆 · 计划 · 推进</div></div><div class="dot"></div></header>
 <div class="tabs">
 <button class="tab active" data-tab="chat">管家</button>
 <button class="tab" data-tab="plans">长期计划</button>
@@ -176,8 +176,7 @@ $('#submitPending').onclick=async()=>{
  try{
    const qs=pending();
    const synthetic=`【对待补问题的补充回答】
-${qs.map((q,i)=>`${i+1}. ${q.question||q}`).join('
-')}
+${qs.map((q,i)=>`${i+1}. ${q.question||q}`).join('\n')}
 
 【用户补充】
 ${reply}`;
