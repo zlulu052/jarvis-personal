@@ -1,17 +1,6 @@
-function outText(d){if(d.output_text)return d.output_text;let s="";for(const i of d.output||[])for(const c of i.content||[])if(c.type==="output_text"&&c.text)s+=c.text;return s.trim()}
-function parse(s){return JSON.parse(s.trim().replace(/^```json\s*/i,"").replace(/^```\s*/,"").replace(/```$/,"").trim())}
+function outText(d){if(d.output_text)return d.output_text;let s='';for(const i of d.output||[])for(const c of i.content||[])if(c.type==='output_text'&&c.text)s+=c.text;return s.trim()}
+function parse(s){return JSON.parse(String(s||'').trim().replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/```$/,'').trim())}
 export default async function handler(req,res){
- if(req.method!=="POST")return res.status(405).json({error:"Method not allowed"});
- const key=process.env.OPENAI_API_KEY;const base=(process.env.OPENAI_API_BASE||"https://api.openai-proxy.org/v1").replace(/\/$/,"");const model=process.env.OPENAI_MODEL;if(!key)return res.status(500).json({error:"服务器尚未配置 OPENAI_API_KEY"});if(!model)return res.status(500).json({error:"服务器尚未配置 OPENAI_MODEL"});
- try{
-  const b=req.body||{};
-  const instructions=`你是Jarvis的长期记忆整理器。把一段时间的记录压缩为未来仍有价值的记忆。
-保留：反复规律、明显变化、重大事件、目标进展、长期偏好变化、未解决问题。不要把偶发现象升级为长期规律。
-只返回合法JSON：
-{"summary":"结构化阶段总结","patterns":["规律1"],"major_events":["事件1"],"open_loops":["未解决问题1"]}`;
-  const input=JSON.stringify({days:b.days,profile:b.profile||{},entries:b.entries||[],plans:b.plans||[]},null,2);
-  const r=await fetch(`${base}/responses`,{method:"POST",headers:{"Authorization":`Bearer ${key}`,"Content-Type":"application/json"},body:JSON.stringify({model,instructions,input})});
-  const d=await r.json();if(!r.ok)return res.status(r.status).json({error:d?.error?.message||"OpenAI API 调用失败"});
-  try{return res.status(200).json(parse(outText(d)))}catch{return res.status(500).json({error:"阶段总结解析失败，请重试"})}
- }catch(e){return res.status(500).json({error:String(e?.message||e)})}
+ if(req.method!=='POST')return res.status(405).json({error:'Method not allowed'});const key=process.env.OPENAI_API_KEY,base=(process.env.OPENAI_API_BASE||'https://api.openai-proxy.org/v1').replace(/\/$/,''),model=process.env.OPENAI_MODEL;if(!key||!model)return res.status(500).json({error:'服务器 API 配置不完整'});
+ try{const b=req.body||{};const instructions=`你是 Jarvis 的长期记忆整理器。把一段时期记录压缩为未来有价值的记忆。保留反复规律、明显变化、重大事件、目标进展、偏好变化和未解决问题；不要把偶发事件升级为长期规律。只返回合法JSON：{"summary":"不超过300字的阶段总结","patterns":["规律1"],"major_events":["重大事件"],"open_loops":["尚未解决的问题"]}`;const input=JSON.stringify({days:b.days,profile:b.profile||{},entries:b.entries||[],plans:b.plans||[]},null,2);const r=await fetch(`${base}/responses`,{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({model,instructions,input})});const d=await r.json();if(!r.ok)return res.status(r.status).json({error:d?.error?.message||'模型调用失败'});try{return res.status(200).json(parse(outText(d)))}catch{return res.status(500).json({error:'阶段总结结构解析失败，请重试'})}}catch(e){return res.status(500).json({error:String(e?.message||e)})}
 }

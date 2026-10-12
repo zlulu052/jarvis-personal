@@ -3,387 +3,328 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<meta name="theme-color" content="#0b0f14">
+<meta name="theme-color" content="#071018">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Jarvis">
 <link rel="manifest" href="/manifest.webmanifest">
-<title>Jarvis 3.3</title>
-
-<style>
-:root{
-  --bg:#071018;
-  --bg2:#0b1620;
-  --panel:rgba(16,29,41,.78);
-  --panel-strong:rgba(12,24,35,.96);
-  --line:rgba(121,185,220,.16);
-  --line-strong:rgba(120,209,255,.30);
-  --text:#f2f7fb;
-  --muted:#8ea8bb;
-  --muted2:#6f8798;
-  --accent:#73d7ff;
-  --accent2:#9ce8ff;
-  --good:#79e2ad;
-  --warn:#ffd27a;
-  --shadow:0 18px 60px rgba(0,0,0,.30);
-}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html{background:var(--bg)}
-body{
-  margin:0;color:var(--text);
-  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
-  background:
-    radial-gradient(circle at 18% -10%, rgba(65,165,210,.18), transparent 34%),
-    radial-gradient(circle at 90% 8%, rgba(73,221,182,.10), transparent 26%),
-    linear-gradient(180deg,var(--bg2),var(--bg) 54%);
-  min-height:100vh;
-}
-body:before{
-  content:"";position:fixed;inset:0;pointer-events:none;opacity:.17;
-  background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
-  background-size:34px 34px;
-  mask-image:linear-gradient(to bottom,black,transparent 75%);
-}
-.app{
-  width:min(980px,100%);
-  margin:auto;
-  padding:calc(env(safe-area-inset-top) + 28px) 22px calc(env(safe-area-inset-bottom) + 72px);
-  position:relative;
-}
-header{
-  display:flex;justify-content:space-between;align-items:center;
-  margin:0 2px 22px;padding:4px 0;
-}
-.brand-wrap{display:flex;align-items:center;gap:14px}
-.brand-orb{
-  width:42px;height:42px;border-radius:50%;
-  background:radial-gradient(circle at 36% 34%,#e9fbff 0 4%,#8de8ff 7%,#269ccc 28%,#0a2b3c 58%,#071018 72%);
-  box-shadow:0 0 34px rgba(98,218,255,.42), inset 0 0 18px rgba(255,255,255,.14);
-  border:1px solid rgba(169,235,255,.38);
-}
-.brand{font-size:25px;font-weight:820;letter-spacing:.8px}
-.sub{color:var(--muted);font-size:12px;margin-top:4px;letter-spacing:.25px}
-.status-chip{
-  display:flex;align-items:center;gap:8px;padding:8px 11px;border-radius:999px;
-  border:1px solid rgba(121,226,173,.22);background:rgba(67,154,111,.10);
-  color:#a8ebc7;font-size:12px;font-weight:700;
-}
-.dot{
-  width:8px;height:8px;border-radius:50%;background:var(--good);
-  box-shadow:0 0 14px rgba(121,226,173,.95);
-}
-.tabs{
-  display:flex;gap:8px;overflow:auto;margin:0 0 18px;padding:5px;
-  border:1px solid var(--line);background:rgba(8,20,29,.54);
-  border-radius:18px;backdrop-filter:blur(18px);
-  position:sticky;top:10px;z-index:20;
-  box-shadow:0 10px 34px rgba(0,0,0,.14);
-}
-.tab{
-  flex:1;min-width:max-content;white-space:nowrap;
-  background:transparent;border:1px solid transparent;color:#98afc0;
-  padding:11px 15px;border-radius:13px;font-weight:760;font-size:14px;
-  transition:.18s ease;cursor:pointer;
-}
-.tab:hover{color:#dff6ff;background:rgba(115,215,255,.06)}
-.tab.active{
-  background:linear-gradient(180deg,rgba(132,224,255,.18),rgba(85,177,213,.10));
-  color:#e8f9ff;border-color:rgba(126,219,255,.27);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 6px 18px rgba(0,0,0,.14);
-}
-.card{
-  background:linear-gradient(180deg,rgba(16,30,43,.82),rgba(11,24,35,.80));
-  border:1px solid var(--line);
-  border-radius:24px;padding:20px;margin-bottom:16px;
-  box-shadow:var(--shadow);
-  backdrop-filter:blur(20px);
-}
-#tab-chat>.card:first-child{
-  border-color:rgba(115,215,255,.23);
-  background:
-    radial-gradient(circle at 92% 0%,rgba(79,187,231,.11),transparent 34%),
-    linear-gradient(180deg,rgba(17,33,47,.90),rgba(10,23,34,.88));
-}
-textarea,input,select{
-  width:100%;border:1px solid rgba(118,174,204,.18);
-  background:rgba(4,13,20,.72);color:var(--text);
-  border-radius:16px;padding:14px 15px;font-size:16px;outline:none;
-  transition:border .18s,box-shadow .18s,background .18s;
-}
-textarea::placeholder,input::placeholder{color:#566c7d}
-textarea:focus,input:focus,select:focus{
-  border-color:rgba(115,215,255,.58);
-  box-shadow:0 0 0 3px rgba(115,215,255,.08);
-  background:rgba(4,14,21,.90);
-}
-textarea{min-height:130px;resize:vertical;line-height:1.68}
-.tall{min-height:200px}
-button{
-  border:0;border-radius:15px;padding:13px 16px;font-size:15px;font-weight:790;
-  cursor:pointer;transition:transform .12s ease,box-shadow .18s ease,opacity .18s;
-}
-button:active{transform:scale(.985)}
-button:disabled{opacity:.55;cursor:wait}
-.primary{
-  width:100%;margin-top:12px;color:#031019;
-  background:linear-gradient(135deg,#b7efff,#70d6ff 56%,#8fe6cf);
-  box-shadow:0 10px 28px rgba(65,184,227,.22);
-}
-.primary:hover{box-shadow:0 13px 34px rgba(65,184,227,.30)}
-.secondary{
-  background:rgba(24,43,57,.84);color:#d8edf6;
-  border:1px solid rgba(121,185,220,.17);
-}
-.secondary:hover{background:rgba(31,53,68,.92)}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.wide{grid-column:1/-1}
-.row{display:flex;gap:10px}.row>*{flex:1}
-.hidden{display:none!important}
-.label{
-  margin:0 0 11px 2px;color:#a6c0d1;font-size:12px;font-weight:720;
-  letter-spacing:.18px;text-transform:none;
-}
-.status{min-height:20px;margin-top:10px;color:#7fa1b7;font-size:12px}
-.analysis,.planpre{white-space:pre-wrap;line-height:1.78}
-.analysis{font-size:15px;color:#deedf4}
-#answerCard{
-  border-color:rgba(126,226,173,.22);
-  background:linear-gradient(180deg,rgba(14,35,38,.78),rgba(11,27,34,.86));
-}
-#answerCard .label{color:#9be2bd}
-#pendingCard{
-  border-color:rgba(255,210,122,.24);
-  background:linear-gradient(180deg,rgba(45,36,20,.52),rgba(19,28,35,.90));
-}
-#pendingCard .label{color:#f2d18c}
-.item{
-  border-top:1px solid rgba(121,185,220,.11);
-  padding-top:14px;margin-top:14px;
-}
-.item:first-child{border-top:0;padding-top:0;margin-top:0}
-.time{font-size:11px;color:#6f8798;margin-bottom:7px}
-.entry{font-size:14px;line-height:1.62;color:#d8e7ef}
-.plan{
-  border:1px solid rgba(115,215,255,.17);
-  border-radius:20px;padding:16px;margin-top:14px;
-  background:linear-gradient(180deg,rgba(10,24,34,.92),rgba(7,18,27,.88));
-}
-.plan h3{margin:0 0 8px;font-size:17px}
-.bar{height:9px;background:rgba(255,255,255,.055);border-radius:999px;overflow:hidden;border:1px solid rgba(255,255,255,.035)}
-.bar>div{height:100%;background:linear-gradient(90deg,#70d6ff,#84e8c1);box-shadow:0 0 18px rgba(112,214,255,.30)}
-.metric{font-size:12px;color:#9ab1c1;margin:9px 0}
-.pill{
-  display:inline-block;padding:5px 9px;border-radius:999px;
-  background:rgba(79,150,181,.11);color:#b9d9e7;
-  border:1px solid rgba(108,191,225,.12);
-  font-size:11px;margin:5px 5px 0 0;
-}
-.small{color:#839bad;font-size:12px;line-height:1.65}
-h2{font-size:19px;margin:0 0 12px;letter-spacing:.15px}
-details summary{cursor:pointer;color:#b9cfdb}
-footer{}
-body::-webkit-scrollbar{width:10px}
-body::-webkit-scrollbar-thumb{background:#1c3342;border-radius:999px;border:2px solid var(--bg)}
-@media(max-width:700px){
-  .app{padding:calc(env(safe-area-inset-top) + 18px) 14px calc(env(safe-area-inset-bottom) + 64px)}
-  .brand-orb{width:36px;height:36px}
-  .brand{font-size:22px}
-  .status-chip{padding:7px 9px}
-  .grid{grid-template-columns:1fr}.wide{grid-column:auto}
-  .row{flex-direction:column}
-  .card{border-radius:20px;padding:16px}
-  .tabs{top:8px;border-radius:16px}
-  .tab{padding:10px 12px}
-}
-</style>
-
+<link rel="apple-touch-icon" href="/icon-180.png">
+<link rel="stylesheet" href="/app.css">
+<title>Jarvis 4</title>
 </head>
 <body>
-<div class="app">
-<header>
-<div class="brand-wrap">
-  <div class="brand-orb" aria-hidden="true"></div>
-  <div><div class="brand">JARVIS 3.3</div><div class="sub">PERSONAL INTELLIGENCE SYSTEM · 分析 · 记忆 · 计划 · 推进</div></div>
-</div>
-<div class="status-chip"><div class="dot"></div><span>ONLINE</span></div>
-</header>
-<div class="tabs">
-<button class="tab active" data-tab="chat">管家</button>
-<button class="tab" data-tab="plans">长期计划</button>
-<button class="tab" data-tab="memory">记忆</button>
-<button class="tab" data-tab="settings">档案</button>
+<div class="app-shell">
+  <header class="topbar">
+    <div class="brand-wrap">
+      <div class="brand-orb" aria-hidden="true"></div>
+      <div>
+        <div class="brand">JARVIS <span class="version">4.0</span></div>
+        <div class="subtitle">PERSONAL INTELLIGENCE SYSTEM</div>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button class="icon-btn" id="quickAddTop" aria-label="快速记录" title="快速记录">＋</button>
+      <div class="online-chip"><span class="online-dot"></span><span>ONLINE</span></div>
+    </div>
+  </header>
+
+  <nav class="desktop-nav" aria-label="主导航">
+    <button class="nav-btn active" data-page="dashboard">首页</button>
+    <button class="nav-btn" data-page="records">记录</button>
+    <button class="nav-btn" data-page="plans">计划</button>
+    <button class="nav-btn" data-page="insights">洞察</button>
+    <button class="nav-btn" data-page="settings">设置</button>
+  </nav>
+
+  <main>
+    <section class="page active" id="page-dashboard">
+      <div class="hero-grid">
+        <div class="hero-card card">
+          <div class="eyebrow">今日管家</div>
+          <h1 id="greetingTitle">今天想记录什么？</h1>
+          <p class="hero-copy">随手写发生了什么。Jarvis 会保存、分类、分析，并把长期变化留在你的个人数据库里。</p>
+          <textarea id="quickText" class="hero-input" placeholder="例如：今天中午和同事吃饭，下午特别困；晚上练了40分钟力量，心情比昨天好。"></textarea>
+          <details class="metric-details">
+            <summary>补充量化状态（可选）</summary>
+            <div class="metric-grid">
+              <label>心情 1-10<input id="metricMood" type="number" min="1" max="10" step="1" inputmode="numeric"></label>
+              <label>精力 1-10<input id="metricEnergy" type="number" min="1" max="10" step="1" inputmode="numeric"></label>
+              <label>压力 1-10<input id="metricStress" type="number" min="1" max="10" step="1" inputmode="numeric"></label>
+              <label>睡眠（小时）<input id="metricSleep" type="number" min="0" max="24" step="0.1" inputmode="decimal"></label>
+              <label>体重 kg<input id="metricWeight" type="number" min="20" max="300" step="0.1" inputmode="decimal"></label>
+            </div>
+          </details>
+          <div class="composer-actions">
+            <button class="secondary-btn" id="saveOnlyBtn">仅记录</button>
+            <button class="primary-btn" id="analyzeBtn">记录并分析</button>
+          </div>
+          <div class="status-line" id="composerStatus"></div>
+        </div>
+
+        <div class="side-stack">
+          <div class="card compact-card" id="pendingMiniCard">
+            <div class="card-title-row"><span class="eyebrow">待处理</span><span class="count-badge" id="pendingCount">0</span></div>
+            <div id="pendingMiniContent" class="muted-copy">目前没有待补充的问题。</div>
+          </div>
+          <div class="card compact-card">
+            <div class="eyebrow">当前重点</div>
+            <div id="focusSummary" class="focus-summary">记录几天后，这里会出现你的近期重点。</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-card"><div class="stat-label">本月记录</div><div class="stat-value" id="statMonth">0</div><div class="stat-sub">条</div></div>
+        <div class="stat-card"><div class="stat-label">连续记录</div><div class="stat-value" id="statStreak">0</div><div class="stat-sub">天</div></div>
+        <div class="stat-card"><div class="stat-label">活跃计划</div><div class="stat-value" id="statPlans">0</div><div class="stat-sub">个</div></div>
+        <div class="stat-card"><div class="stat-label">近期高频</div><div class="stat-value small-value" id="statTopTag">—</div><div class="stat-sub">标签</div></div>
+      </div>
+
+      <div class="dashboard-grid">
+        <div class="card chart-card">
+          <div class="card-head">
+            <div><div class="eyebrow">近30天趋势</div><h2>状态曲线</h2></div>
+            <select id="dashboardMetricSelect" class="mini-select">
+              <option value="mood">心情</option>
+              <option value="energy">精力</option>
+              <option value="stress">压力</option>
+              <option value="sleep_hours">睡眠</option>
+              <option value="weight_kg">体重</option>
+            </select>
+          </div>
+          <div class="canvas-wrap"><canvas id="dashboardTrendCanvas"></canvas></div>
+          <div class="chart-empty hidden" id="dashboardTrendEmpty">还没有足够的量化数据。记录时填写心情/睡眠等，曲线会自动出现。</div>
+        </div>
+        <div class="card chart-card">
+          <div class="card-head"><div><div class="eyebrow">近30天主题</div><h2>标签分布</h2></div></div>
+          <div class="tag-bars" id="dashboardTagBars"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div><div class="eyebrow">最近</div><h2>时间轴</h2></div><button class="text-btn" data-goto="records">查看全部</button></div>
+        <div id="dashboardTimeline"></div>
+      </div>
+    </section>
+
+    <section class="page" id="page-records">
+      <div class="page-head">
+        <div><div class="eyebrow">PERSONAL LOG</div><h1>记录</h1><p>按时间、标签和关键词整理你的人生流水账。</p></div>
+        <button class="primary-btn small-btn" id="newRecordBtn">＋ 新记录</button>
+      </div>
+      <div class="card filter-card">
+        <input id="recordSearch" class="search-input" placeholder="搜索记录、分析内容……">
+        <div class="filter-row">
+          <select id="recordRange" class="mini-select">
+            <option value="all">全部时间</option>
+            <option value="7">最近7天</option>
+            <option value="30">最近30天</option>
+            <option value="90">最近90天</option>
+          </select>
+          <select id="recordStatus" class="mini-select">
+            <option value="all">全部状态</option>
+            <option value="analyzed">已分析</option>
+            <option value="pending">待补充</option>
+            <option value="note">仅记录</option>
+          </select>
+        </div>
+        <div class="tag-filter-scroll" id="recordTagFilters"></div>
+      </div>
+      <div id="recordList"></div>
+      <div class="empty-state hidden" id="recordEmpty">没有找到符合条件的记录。</div>
+    </section>
+
+    <section class="page" id="page-plans">
+      <div class="page-head">
+        <div><div class="eyebrow">LONG-TERM EXECUTION</div><h1>长期计划</h1><p>健身、读书、学习、存钱或任何需要持续推进的目标。</p></div>
+        <button class="primary-btn small-btn" id="openPlanCreateBtn">＋ 新计划</button>
+      </div>
+      <div id="planList"></div>
+      <div class="empty-state" id="planEmpty">还没有长期计划。创建一个目标，Jarvis 会拆成里程碑和每周清单。</div>
+    </section>
+
+    <section class="page" id="page-insights">
+      <div class="page-head">
+        <div><div class="eyebrow">ANALYTICS</div><h1>洞察</h1><p>把流水账变成趋势、规律和行动建议。</p></div>
+        <select id="insightRange" class="mini-select">
+          <option value="7">7天</option>
+          <option value="30" selected>30天</option>
+          <option value="90">90天</option>
+          <option value="all">全部</option>
+        </select>
+      </div>
+
+      <div class="stats-grid insight-stats">
+        <div class="stat-card"><div class="stat-label">记录数</div><div class="stat-value" id="insightRecords">0</div></div>
+        <div class="stat-card"><div class="stat-label">平均心情</div><div class="stat-value" id="insightMood">—</div></div>
+        <div class="stat-card"><div class="stat-label">平均睡眠</div><div class="stat-value" id="insightSleep">—</div></div>
+        <div class="stat-card"><div class="stat-label">高频主题</div><div class="stat-value small-value" id="insightTopTag">—</div></div>
+      </div>
+
+      <div class="card chart-card">
+        <div class="card-head">
+          <div><div class="eyebrow">趋势</div><h2>状态变化</h2></div>
+          <select id="insightMetricSelect" class="mini-select">
+            <option value="mood">心情</option>
+            <option value="energy">精力</option>
+            <option value="stress">压力</option>
+            <option value="sleep_hours">睡眠</option>
+            <option value="weight_kg">体重</option>
+            <option value="workout_minutes">运动分钟</option>
+            <option value="reading_minutes">阅读分钟</option>
+          </select>
+        </div>
+        <div class="canvas-wrap large"><canvas id="insightTrendCanvas"></canvas></div>
+        <div class="chart-empty hidden" id="insightTrendEmpty">这个指标还没有数据。</div>
+      </div>
+
+      <div class="insight-grid">
+        <div class="card chart-card">
+          <div class="card-head"><div><div class="eyebrow">主题</div><h2>标签频率</h2></div></div>
+          <div class="tag-bars" id="insightTagBars"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><div class="eyebrow">Jarvis</div><h2>趋势解读</h2></div><button class="secondary-btn small-btn" id="aiInsightBtn">AI 解读</button></div>
+          <div id="aiInsightContent" class="muted-copy">点击“AI 解读”，Jarvis 会基于当前区间的数据和标签分布给出简洁趋势判断。</div>
+          <div class="status-line" id="aiInsightStatus"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-settings">
+      <div class="page-head">
+        <div><div class="eyebrow">CONTROL CENTER</div><h1>设置</h1><p>管理标签、长期档案和本地数据。</p></div>
+      </div>
+
+      <div class="settings-grid">
+        <div class="card">
+          <div class="card-head"><div><div class="eyebrow">标签系统</div><h2>标签管理</h2></div><button class="secondary-btn small-btn" id="newTagBtn">＋ 新标签</button></div>
+          <p class="muted-copy">Jarvis 会自动分类。你可以手动改标签；这些纠错会作为以后分类的参考。</p>
+          <div id="tagManagerList"></div>
+        </div>
+
+        <div class="card">
+          <div class="eyebrow">长期档案</div><h2>个人背景</h2>
+          <div class="form-grid">
+            <label>称呼<input id="profileName"></label>
+            <label>年龄<input id="profileAge" inputmode="numeric"></label>
+            <label>性别<input id="profileSex"></label>
+            <label>身高<input id="profileHeight" placeholder="例如 175cm"></label>
+            <label>体重<input id="profileWeight" placeholder="例如 70kg"></label>
+            <label>职业<input id="profileJob"></label>
+            <label class="span-2">作息 / 上下班<input id="profileSchedule"></label>
+            <label class="span-2">目前最重要的目标<input id="profileGoals"></label>
+            <label class="span-2">价值排序 / 偏好<input id="profileValues"></label>
+            <label class="span-2">其他长期背景<textarea id="profileNotes"></textarea></label>
+          </div>
+          <button class="primary-btn" id="saveProfileBtn">保存档案</button>
+          <div class="status-line" id="profileStatus"></div>
+        </div>
+      </div>
+
+      <div class="settings-grid">
+        <div class="card">
+          <div class="eyebrow">本地数据</div><h2>备份与恢复</h2>
+          <p class="muted-copy">数据实时保存在当前手机的 IndexedDB。不会上传到 iCloud。建议偶尔导出一份 JSON 到“我的 iPhone”。</p>
+          <div class="button-stack">
+            <button class="secondary-btn" id="exportBtn">导出完整备份</button>
+            <button class="secondary-btn" id="importBtn">导入备份</button>
+            <input id="importFile" class="hidden" type="file" accept="application/json">
+            <button class="secondary-btn" id="createSnapshotBtn">创建本地恢复点</button>
+            <button class="secondary-btn" id="restoreSnapshotBtn">恢复最近恢复点</button>
+          </div>
+          <div class="status-line" id="backupStatus"></div>
+        </div>
+
+        <div class="card">
+          <div class="eyebrow">长期记忆</div><h2>阶段总结</h2>
+          <p class="muted-copy">阶段总结用于长期分析，不会替代原始记录。</p>
+          <div class="button-stack">
+            <button class="secondary-btn memory-summary-btn" data-days="7">更新最近7天总结</button>
+            <button class="secondary-btn memory-summary-btn" data-days="30">更新最近30天总结</button>
+            <button class="secondary-btn memory-summary-btn" data-days="90">更新最近90天总结</button>
+          </div>
+          <div id="summaryList" class="summary-list"></div>
+          <div class="status-line" id="summaryStatus"></div>
+        </div>
+      </div>
+    </section>
+  </main>
 </div>
 
-<section id="tab-chat">
-<div class="card">
-<div class="label">今天想让我帮你处理什么？</div>
-<textarea id="input" class="tall" placeholder="例如：我最近总想开始健身，但每次坚持三四天就停了。&#10;&#10;也可以直接写：今天跑了3公里，感觉状态不错。"></textarea>
-<button class="primary" id="send">开始分析</button>
-<div id="status" class="status"></div>
-</div>
-<div class="card hidden" id="pendingCard">
-<div class="label">需要你补充的信息</div>
-<div id="pendingBox"></div>
-<textarea id="pendingReply" style="min-height:110px;margin-top:10px" placeholder="按顺序回答上面的问题，想到多少写多少。"></textarea>
-<button class="primary" id="submitPending">补充信息并继续分析</button>
-<div id="pendingStatus" class="status"></div>
-</div>
-<div class="card hidden" id="answerCard"><div class="label">Jarvis 的判断</div><div id="answer" class="analysis"></div></div>
-<div class="card"><div class="label">最近对话与记录</div><div id="history"></div></div>
-</section>
+<nav class="mobile-nav" aria-label="手机导航">
+  <button class="mobile-nav-btn active" data-page="dashboard"><span>⌂</span><small>首页</small></button>
+  <button class="mobile-nav-btn" data-page="records"><span>☰</span><small>记录</small></button>
+  <button class="mobile-nav-btn" data-page="plans"><span>✓</span><small>计划</small></button>
+  <button class="mobile-nav-btn" data-page="insights"><span>⌁</span><small>洞察</small></button>
+  <button class="mobile-nav-btn" data-page="settings"><span>⚙</span><small>设置</small></button>
+</nav>
 
-<section id="tab-plans" class="hidden">
-<div class="card">
-<h2>创建长期计划</h2>
-<div class="small" style="margin-bottom:12px">适合健身、读书、考证、存钱、学习技能、项目推进等。会自动拆成阶段、清单、里程碑、复盘规则和进度指标。</div>
-<div class="grid">
-<input id="planGoal" class="wide" placeholder="目标，例如：12周建立稳定健身习惯">
-<textarea id="planCurrent" placeholder="当前情况：基础、已做到什么、主要问题"></textarea>
-<textarea id="planConstraints" placeholder="限制：时间、预算、身体、工作等"></textarea>
-<input id="planDeadline" placeholder="截止日期（可留空）">
-<input id="planTime" placeholder="可投入时间，例如 每周4次×45分钟">
-<select id="planPace"><option>稳健</option><option>积极</option><option>轻量</option></select>
-<input id="planMetric" placeholder="最在意的结果指标（可留空）">
-</div>
-<button class="primary" id="createPlan">生成完整计划</button>
-<div id="planStatus" class="status"></div>
-</div>
-<div class="card"><div class="label">进行中的计划</div><div id="plansList"></div></div>
-</section>
-
-<section id="tab-memory" class="hidden">
-<div class="card">
-<h2>分层记忆</h2>
-<div class="small">分析时自动组合：长期档案、最近记录、相关旧记录、阶段总结和活跃计划。复杂问题读取更多历史，简单问题读取更少。</div>
-<div class="row" style="margin-top:12px">
-<button class="secondary" id="refresh7">更新7天总结</button>
-<button class="secondary" id="refresh30">更新30天总结</button>
-<button class="secondary" id="refresh90">更新90天总结</button>
-</div>
-<div id="memoryStatus" class="status"></div>
-</div>
-<div class="card"><div class="label">阶段总结</div><div id="summaries"></div></div>
-<div class="row"><button class="secondary" id="exportBtn">导出全部备份</button><button class="secondary" id="importBtn">导入备份</button></div>
-<input id="importFile" type="file" accept="application/json" class="hidden">
-</section>
-
-<section id="tab-settings" class="hidden">
-<div class="card">
-<h2>长期档案</h2>
-<div class="grid">
-<input id="name" placeholder="称呼"><input id="age" placeholder="年龄">
-<input id="sex" placeholder="性别"><input id="height" placeholder="身高">
-<input id="weight" placeholder="体重"><input id="job" placeholder="职业">
-<input class="wide" id="schedule" placeholder="作息 / 上下班时间">
-<input class="wide" id="goals" placeholder="目前最重要的目标">
-<input class="wide" id="values" placeholder="重要偏好 / 价值排序（可留空）">
-<textarea class="wide" id="notes" placeholder="其他长期背景：重要关系、长期困扰、生活约束等"></textarea>
-</div>
-<button class="primary" id="saveProfile">保存长期档案</button>
-<div id="profileStatus" class="status"></div>
-</div>
-</section>
-
-<div class="small" style="margin-top:14px">原始数据默认保存在当前设备本地。AI分析时，只发送本次所需的档案、总结、计划和筛选出的历史。请定期导出备份。</div>
+<div class="modal-backdrop hidden" id="analysisModal">
+  <div class="modal-panel large-modal">
+    <button class="modal-close" data-close="analysisModal">×</button>
+    <div id="analysisModalBody"></div>
+  </div>
 </div>
 
-<script>
-const K={profile:'jarvis3_profile',entries:'jarvis3_entries',plans:'jarvis3_plans',summaries:'jarvis3_summaries',pending:'jarvis3_pending'};
-const $=s=>document.querySelector(s),get=(k,f)=>{try{return JSON.parse(localStorage.getItem(k)||JSON.stringify(f))}catch{return f}},set=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
-const profile=()=>get(K.profile,{}),entries=()=>get(K.entries,[]),plans=()=>get(K.plans,[]),summaries=()=>get(K.summaries,[]),pending=()=>get(K.pending,[]);
-const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('[id^="tab-"]').forEach(x=>x.classList.add('hidden'));$('#tab-'+b.dataset.tab).classList.remove('hidden');document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===b))});
-function grams(s){s=(s||'').toLowerCase().replace(/\s+/g,'').replace(/[，。！？、,.!?;；:："'“”‘’（）()\[\]{}]/g,'');const z=new Set();for(let i=0;i<s.length-1;i++)z.add(s.slice(i,i+2));return z}
-function modeFor(t){if(/人生|这几年|两年|三年|过去一年|长期变化|半年/.test(t))return'life';if(/最近|这个月|几周|为什么|越来越|反复|总是|经常|趋势|规律/.test(t))return'deep';return'quick'}
-function selectHistory(text){const all=entries(),mode=modeFor(text),rn=mode==='quick'?20:mode==='deep'?35:50,relN=mode==='quick'?30:mode==='deep'?80:140,recent=all.slice(-rn),ids=new Set(recent.map(x=>x.id)),q=grams(text);const relevant=all.filter(x=>!ids.has(x.id)).map(e=>{const eg=grams(e.text);let c=0;q.forEach(g=>{if(eg.has(g))c++});const age=(Date.now()-new Date(e.time))/86400000;return[c*4+Math.max(0,8-age/10)+(e.important?8:0),e]}).sort((a,b)=>b[0]-a[0]).filter(x=>x[0]>1).slice(0,relN).map(x=>x[1]);return{mode,recent,relevant}}
-async function api(path,body){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),d=await r.json();if(!r.ok)throw new Error(d.error||'请求失败');return d}
-function renderHistory(){const box=$('#history'),a=entries().slice().reverse().slice(0,30);box.innerHTML=a.length?a.map(e=>`<div class="item"><div class="time">${new Date(e.time).toLocaleString()}</div><div class="entry">${esc(e.text)}</div>${e.analysis?`<details><summary class="small">查看分析</summary><div class="analysis" style="font-size:12px">${esc(e.analysis)}</div></details>`:''}</div>`).join(''):'<div class="small">还没有记录。</div>'}
-function planText(p){const s=p.spec||{};let o='';if(s.success_metrics?.length)o+='成功标准：\n- '+s.success_metrics.join('\n- ')+'\n\n';if(s.milestones?.length){o+='阶段里程碑：\n';for(const m of s.milestones){o+=`\n${m.period||''} ${m.objective||''}\n`;if(m.checklist)o+='- '+m.checklist.join('\n- ')+'\n'}}if(s.weekly_template?.length){o+='\n每周模板：\n';for(const d of s.weekly_template)o+=`\n${d.day||''}：${(d.tasks||[]).map(t=>typeof t==='string'?t:t.task).join('；')}`}if(s.first_7_days?.length){o+='\n\n前7天：\n';for(const d of s.first_7_days)o+=`${d.day||''}：${(d.tasks||[]).map(t=>typeof t==='string'?t:t.task).join('；')}\n`}if(s.review_rules?.length)o+='\n复盘规则：\n- '+s.review_rules.join('\n- ');return o}
-function renderPlans(){const box=$('#plansList'),a=plans().slice().reverse();box.innerHTML=a.length?a.map(p=>`<div class="plan" data-id="${p.id}"><h3>${esc(p.title||p.goal)}</h3><div class="metric">进度 ${Math.round(p.progress||0)}% · ${esc(p.status||'active')}</div><div class="bar"><div style="width:${Math.min(100,Math.max(0,p.progress||0))}%"></div></div><div>${(p.spec?.tracking_fields||[]).map(x=>`<span class="pill">${esc(x)}</span>`).join('')}</div><details style="margin-top:12px"><summary>查看完整计划</summary><div class="planpre">${esc(planText(p))}</div></details><textarea class="checkin" style="min-height:90px;margin-top:12px" placeholder="汇报进度：这周做了什么、没做到什么、哪里卡住了"></textarea><button class="secondary progressBtn" style="width:100%;margin-top:8px">更新进度并调整下一步</button>${p.lastAdvice?`<div class="analysis" style="font-size:13px;margin-top:10px">${esc(p.lastAdvice)}</div>`:''}</div>`).join(''):'<div class="small">还没有计划。</div>';document.querySelectorAll('.progressBtn').forEach(btn=>btn.onclick=()=>updateProgress(btn))}
-async function updateProgress(btn){const card=btn.closest('.plan'),id=card.dataset.id,text=card.querySelector('.checkin').value.trim();if(!text)return;btn.disabled=true;try{let ps=plans(),i=ps.findIndex(x=>x.id===id),p=ps[i],d=await api('/api/progress',{profile:profile(),plan:p,checkin:text,recent:entries().slice(-20)});p.progress=d.progress_percent??p.progress??0;p.lastAdvice=d.advice||'';p.updatedAt=new Date().toISOString();ps[i]=p;set(K.plans,ps);let es=entries();es.push({id:crypto.randomUUID(),time:new Date().toISOString(),text:`[计划进度] ${p.title||p.goal}：${text}`,analysis:d.advice||'',important:true});set(K.entries,es);renderPlans();renderHistory()}catch(e){alert(e.message)}finally{btn.disabled=false}}
-function renderSummaries(){const a=summaries().slice().reverse();$('#summaries').innerHTML=a.length?a.slice(0,12).map(s=>`<div class="item"><div class="time">${esc(s.label)} · ${new Date(s.updatedAt).toLocaleString()}</div><div class="analysis" style="font-size:13px">${esc(s.summary)}</div>${(s.patterns||[]).map(x=>`<span class="pill">${esc(x)}</span>`).join('')}</div>`).join(''):'<div class="small">还没有阶段总结。</div>'}
-function renderPending(){
- const box=$('#pendingBox'),arr=pending();
- if(!arr.length){$('#pendingCard').classList.add('hidden');return}
- $('#pendingCard').classList.remove('hidden');
- box.innerHTML=arr.map((q,i)=>`<div class="item"><div class="entry"><b>${i+1}.</b> ${esc(q.question||q)}</div>${q.reason?`<div class="small" style="margin-top:4px">${esc(q.reason)}</div>`:''}</div>`).join('');
-}
-function fillProfile(){const p=profile();for(const k of ['name','age','sex','height','weight','job','schedule','goals','values','notes'])$('#'+k).value=p[k]||''}
-$('#saveProfile').onclick=()=>{const p={};for(const k of ['name','age','sex','height','weight','job','schedule','goals','values','notes'])p[k]=$('#'+k).value.trim();set(K.profile,p);$('#profileStatus').textContent='已保存到本机。'}
-$('#send').onclick=async()=>{
- const text=$('#input').value.trim();if(!text)return;
- const b=$('#send');b.disabled=true;$('#status').textContent='正在判断信息是否足够…';$('#answerCard').classList.add('hidden');
- try{
-   const h=selectHistory(text);
-   const d=await api('/api/analyze',{
-     profile:profile(),
-     summaries:summaries().slice(-8),
-     active_plans:plans().filter(p=>p.status!=='done').slice(-8),
-     pending:pending(),
-     mode:h.mode,
-     recent:h.recent,
-     relevant:h.relevant,
-     text
-   });
-   let es=entries();
-   if(d.need_clarification){
-     const qs=(d.questions||[]).map(q=>typeof q==='string'?{question:q}:q);
-     set(K.pending,qs);
-     es.push({id:crypto.randomUUID(),time:new Date().toISOString(),text,analysis:'[待补充信息后再判断]',important:true});
-     set(K.entries,es);
-     $('#status').textContent='关键信息不足，Jarvis 暂停判断并向你追问。';
-     $('#input').value='';
-     renderPending();renderHistory();
-   }else{
-     set(K.pending,[]);
-     es.push({id:crypto.randomUUID(),time:new Date().toISOString(),text,analysis:d.analysis||'',important:!!d.important});
-     set(K.entries,es);
-     $('#answer').textContent=d.analysis||'';
-     $('#answerCard').classList.remove('hidden');
-     $('#status').textContent=`已完成 · ${h.mode==='quick'?'快速':h.mode==='deep'?'深度':'人生级'}分析`;
-     $('#input').value='';renderPending();renderHistory();
-   }
- }catch(e){$('#status').textContent=e.message}finally{b.disabled=false}
-}
+<div class="modal-backdrop hidden" id="tagEditModal">
+  <div class="modal-panel">
+    <button class="modal-close" data-close="tagEditModal">×</button>
+    <div class="eyebrow">分类纠错</div><h2>编辑这条记录的标签</h2>
+    <div id="tagEditChoices" class="tag-choice-grid"></div>
+    <button class="primary-btn" id="saveEntryTagsBtn">保存标签</button>
+  </div>
+</div>
 
-$('#submitPending').onclick=async()=>{
- const reply=$('#pendingReply').value.trim(); if(!reply)return;
- const btn=$('#submitPending');btn.disabled=true;$('#pendingStatus').textContent='正在把你的补充信息合并进判断…';
- try{
-   const qs=pending();
-   const synthetic=`【对待补问题的补充回答】
-${qs.map((q,i)=>`${i+1}. ${q.question||q}`).join('\n')}
+<div class="modal-backdrop hidden" id="tagCreateModal">
+  <div class="modal-panel">
+    <button class="modal-close" data-close="tagCreateModal">×</button>
+    <div class="eyebrow">自定义分类</div><h2>新建标签</h2>
+    <label>标签名称<input id="newTagName" placeholder="例如：社区工作"></label>
+    <label>颜色<input id="newTagColor" type="color" value="#73d7ff"></label>
+    <button class="primary-btn" id="createTagBtn">创建</button>
+  </div>
+</div>
 
-【用户补充】
-${reply}`;
-   const h=selectHistory(synthetic);
-   const d=await api('/api/analyze',{
-     profile:profile(),summaries:summaries().slice(-8),
-     active_plans:plans().filter(p=>p.status!=='done').slice(-8),
-     pending:qs,mode:'deep',recent:h.recent,relevant:h.relevant,text:synthetic,followup:true
-   });
-   if(d.need_clarification){
-     set(K.pending,(d.questions||[]).map(q=>typeof q==='string'?{question:q}:q));
-     $('#pendingStatus').textContent='还差一点关键资料，我已经保留新的待回答问题。';
-     renderPending();
-   }else{
-     let es=entries();
-     es.push({id:crypto.randomUUID(),time:new Date().toISOString(),text:synthetic,analysis:d.analysis||'',important:true});
-     set(K.entries,es);set(K.pending,[]);
-     $('#pendingReply').value='';renderPending();renderHistory();
-     $('#answer').textContent=d.analysis||'';$('#answerCard').classList.remove('hidden');
-     $('#pendingStatus').textContent='信息已补齐，已完成正式分析。';
-   }
- }catch(e){$('#pendingStatus').textContent=e.message}finally{btn.disabled=false}
-}
+<div class="modal-backdrop hidden" id="recordModal">
+  <div class="modal-panel large-modal">
+    <button class="modal-close" data-close="recordModal">×</button>
+    <div class="eyebrow">QUICK LOG</div><h2>新记录</h2>
+    <textarea id="recordModalText" class="tall" placeholder="今天发生了什么？"></textarea>
+    <div class="modal-actions"><button class="secondary-btn" id="modalSaveOnly">仅记录</button><button class="primary-btn" id="modalAnalyze">记录并分析</button></div>
+    <div class="status-line" id="recordModalStatus"></div>
+  </div>
+</div>
 
-$('#createPlan').onclick=async()=>{const goal=$('#planGoal').value.trim();if(!goal)return;const b=$('#createPlan');b.disabled=true;$('#planStatus').textContent='正在拆解目标和里程碑…';try{const d=await api('/api/plan',{profile:profile(),goal,current:$('#planCurrent').value.trim(),constraints:$('#planConstraints').value.trim(),deadline:$('#planDeadline').value.trim(),time_budget:$('#planTime').value.trim(),pace:$('#planPace').value,metric:$('#planMetric').value.trim(),summaries:summaries().slice(-4)}),ps=plans();ps.push({id:crypto.randomUUID(),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),status:'active',progress:0,goal,title:d.plan_title||goal,spec:d});set(K.plans,ps);$('#planStatus').textContent='计划已创建。之后直接汇报进度即可继续调整。';renderPlans()}catch(e){$('#planStatus').textContent=e.message}finally{b.disabled=false}}
-async function refreshSummary(days){const a=entries().filter(e=>(Date.now()-new Date(e.time))/86400000<=days);if(!a.length)throw new Error('这个时间范围内还没有记录');const d=await api('/api/summarize',{profile:profile(),days,entries:a.slice(-300),plans:plans().filter(p=>p.status!=='done')});let s=summaries().filter(x=>x.days!==days);s.push({days,label:`最近${days}天`,updatedAt:new Date().toISOString(),summary:d.summary||'',patterns:d.patterns||[],major_events:d.major_events||[]});set(K.summaries,s);renderSummaries()}
-for(const days of [7,30,90])$('#refresh'+days).onclick=async()=>{const m=$('#memoryStatus');m.textContent=`正在更新${days}天总结…`;try{await refreshSummary(days);m.textContent='已更新。'}catch(e){m.textContent=e.message}}
-$('#exportBtn').onclick=()=>{const d={version:3,exportedAt:new Date().toISOString(),profile:profile(),entries:entries(),plans:plans(),summaries:summaries(),pending:pending()},blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='jarvis-v2-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href)}
-$('#importBtn').onclick=()=>$('#importFile').click();$('#importFile').onchange=async e=>{try{const d=JSON.parse(await e.target.files[0].text());if(d.profile)set(K.profile,d.profile);if(Array.isArray(d.entries))set(K.entries,d.entries);if(Array.isArray(d.plans))set(K.plans,d.plans);if(Array.isArray(d.summaries))set(K.summaries,d.summaries);if(Array.isArray(d.pending))set(K.pending,d.pending);fillProfile();renderHistory();renderPlans();renderSummaries();renderPending();renderPending();alert('导入完成')}catch(err){alert('导入失败：'+err.message)}}
-if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
-fillProfile();renderHistory();renderPlans();renderSummaries();renderPending();
-</script>
+<div class="modal-backdrop hidden" id="planCreateModal">
+  <div class="modal-panel large-modal">
+    <button class="modal-close" data-close="planCreateModal">×</button>
+    <div class="eyebrow">NEW PLAN</div><h2>创建长期计划</h2>
+    <div class="form-grid">
+      <label class="span-2">目标<input id="planGoal" placeholder="例如：12周建立稳定健身习惯"></label>
+      <label>当前基础<textarea id="planCurrent"></textarea></label>
+      <label>限制条件<textarea id="planConstraints"></textarea></label>
+      <label>截止日期<input id="planDeadline" type="date"></label>
+      <label>可投入时间<input id="planTime" placeholder="例如 每周4次×45分钟"></label>
+      <label>节奏<select id="planPace"><option value="稳健">稳健</option><option value="积极">积极</option><option value="轻量">轻量</option></select></label>
+      <label>结果指标<input id="planMetric" placeholder="例如：每周训练次数"></label>
+    </div>
+    <button class="primary-btn" id="createPlanBtn">生成完整计划</button>
+    <div class="status-line" id="planCreateStatus"></div>
+  </div>
+</div>
+
+<div class="modal-backdrop hidden" id="pendingModal">
+  <div class="modal-panel large-modal">
+    <button class="modal-close" data-close="pendingModal">×</button>
+    <div class="eyebrow">NEED MORE CONTEXT</div><h2>Jarvis 还需要这些信息</h2>
+    <div id="pendingQuestions"></div>
+    <textarea id="pendingReply" class="tall" placeholder="按顺序回答，想到多少写多少。"></textarea>
+    <button class="primary-btn" id="submitPendingBtn">补充后继续分析</button>
+    <div class="status-line" id="pendingStatus"></div>
+  </div>
+</div>
+
+<script src="/app.js"></script>
 </body>
 </html>
