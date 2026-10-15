@@ -1,7 +1,7 @@
-// Jarvis v4.1 - manual tags override AI classification
+// Jarvis v5.0 - multimodal records, deeper insights, Ask Jarvis
 const DB_NAME='jarvis_v4_db';
-const DB_VERSION=1;
-const STORES=['entries','plans','summaries','tags','feedback','meta','snapshots'];
+const DB_VERSION=2;
+const STORES=['entries','plans','summaries','tags','feedback','meta','snapshots','spaces','conversations'];
 const $=s=>document.querySelector(s);
 const $$=s=>Array.from(document.querySelectorAll(s));
 const uid=()=>crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -10,13 +10,15 @@ const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
 const escapeHTML=s=>String(s??'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]));
 
 let db;
-let state={profile:{},entries:[],plans:[],summaries:[],tags:[],feedback:[],pending:null};
+let state={profile:{},entries:[],plans:[],summaries:[],tags:[],feedback:[],spaces:[],conversations:[],pending:null};
 let activeRecordTag='all';
 let editingEntryId=null;
 let currentPage='dashboard';
 let quickSelectedTagIds=new Set();
 let modalSelectedTagIds=new Set();
 let tagCreateContext='settings';
+let quickImage=null,modalImage=null,askImage=null;
+let selectedSpaceId='general';
 
 const DEFAULT_TAGS=[
  {id:'love',name:'感情',color:'#ff9fb5',system:true,keywords:['女友','男友','恋爱','暧昧','喜欢','分手','关系','约会','对象']},
@@ -43,7 +45,7 @@ function openDB(){
    const d=r.result;
    for(const s of STORES){
     if(d.objectStoreNames.contains(s)) continue;
-    if(s==='entries'||s==='plans'||s==='tags'||s==='feedback'||s==='snapshots') d.createObjectStore(s,{keyPath:'id'});
+    if(s==='entries'||s==='plans'||s==='tags'||s==='feedback'||s==='snapshots'||s==='spaces'||s==='conversations') d.createObjectStore(s,{keyPath:'id'});
     else if(s==='summaries') d.createObjectStore(s,{keyPath:'days'});
     else d.createObjectStore(s,{keyPath:'key'});
    }
@@ -87,7 +89,7 @@ function localGuessTagIds(text){
  }
  scores.sort((a,b)=>b[0]-a[0]);
  const ids=scores.slice(0,3).map(x=>x[1]);
- return ids.length?ids:['daily'];
+ return ids.length?ids:(tagById('daily')?['daily']:[]);
 }
 function tagById(id){return state.tags.find(t=>t.id===id)}
 function tagName(id){return tagById(id)?.name||id}
@@ -121,16 +123,28 @@ async function migrateV3IfNeeded(){
 }
 
 async function seedTags(){
+ const seeded=await metaGet('tags_seeded',false);if(seeded)return;
  const tags=await dbGetAll('tags');
- if(tags.length)return;
- for(const t of DEFAULT_TAGS)await dbPut('tags',t);
+ if(!tags.length)for(const t of DEFAULT_TAGS)await dbPut('tags',t);
+ await metaSet('tags_seeded',true);
 }
+async function seedSpaces(){
+ const spaces=await dbGetAll('spaces');if(spaces.length)return;
+ const base=[
+  {id:'general',name:'全局问答',system:true,tagIds:[],description:'读取全部生活记录，适合综合问题。',createdAt:nowISO()},
+  {id:'relationship',name:'关系专题',system:true,tagIds:['love','emotion'],description:'优先读取关系、情绪和相关事件，适合长期关系分析。',createdAt:nowISO()}
+ ];
+ for(const x of base)await dbPut('spaces',x);
+}
+
 async function loadState(){
  state.tags=await dbGetAll('tags');
  state.entries=(await dbGetAll('entries')).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
  state.plans=(await dbGetAll('plans')).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
  state.summaries=(await dbGetAll('summaries')).sort((a,b)=>a.days-b.days);
  state.feedback=(await dbGetAll('feedback')).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
+ state.spaces=(await dbGetAll('spaces')).sort((a,b)=>new Date(a.createdAt||0)-new Date(b.createdAt||0));
+ state.conversations=(await dbGetAll('conversations')).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
  state.profile=await metaGet('profile',{});state.pending=await metaGet('pending',null);
 }
 async function saveEntry(entry){entry.updatedAt=nowISO();await dbPut('entries',entry);const i=state.entries.findIndex(x=>x.id===entry.id);if(i>=0)state.entries[i]=entry;else state.entries.push(entry);state.entries.sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));scheduleLocalSnapshot();}
@@ -144,7 +158,7 @@ function selectHistory(text,currentId=null){
  const relevant=all.filter(e=>!ids.has(e.id)).map(e=>{const eg=grams(`${e.text||''} ${e.analysis?.judgment||e.analysisRaw||''}`);let common=0;q.forEach(g=>{if(eg.has(g))common++});const age=(Date.now()-new Date(e.createdAt))/86400000;return[common*4+Math.max(0,8-age/12)+(e.importance==='high'?7:0),e]}).sort((a,b)=>b[0]-a[0]).filter(x=>x[0]>1).slice(0,relN).map(x=>x[1]);
  return {mode,recent,relevant};
 }
-function serializeEntries(arr){return arr.map(e=>({createdAt:e.createdAt,text:e.text,title:e.title,tags:(e.tagIds||[]).map(tagName),metrics:e.metrics||{},importance:e.importance,status:e.status,analysis:e.analysis?{core:e.analysis.core,judgment:e.analysis.judgment,actions:e.analysis.actions}:null}))}
+function serializeEntries(arr){return arr.map(e=>({createdAt:e.createdAt,text:e.text,title:e.title,tags:(e.tagIds||[]).map(tagName),metrics:e.metrics||{},metric_meta:e.metricMeta||{},image_context:(e.attachments||[]).map(a=>a.vision?.summary||a.vision?.description).filter(Boolean),importance:e.importance,status:e.status,analysis:e.analysis?{core:e.analysis.core,judgment:e.analysis.judgment,actions:e.analysis.actions,psychology:e.analysis.psychology}:null}))}
 async function api(path,body){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});let d;try{d=await r.json()}catch{throw new Error(`服务器返回 ${r.status}`)}if(!r.ok)throw new Error(d.error||`请求失败 ${r.status}`);return d}
 function tagCatalog(){return state.tags.map(t=>({name:t.name,system:!!t.system}))}
 function feedbackExamples(){return state.feedback.slice(-30).map(f=>({text:f.text,before:f.before,after:f.after}))}
@@ -152,7 +166,8 @@ function activePlansForAI(){return state.plans.filter(p=>p.status!=='done').slic
 
 function buildEntry(text,metrics={},status='note',manualTagIds=[]){
  const chosen=[...new Set(manualTagIds||[])].filter(id=>tagById(id));
- return {id:uid(),createdAt:nowISO(),updatedAt:nowISO(),text:text.trim(),title:text.trim().slice(0,28)||'新记录',status,importance:'low',tagIds:chosen.length?chosen:localGuessTagIds(text),manualTagOverride:chosen.length>0,metrics:cleanMetrics(metrics),analysis:null,analysisRaw:'',followups:[]};
+ const cm=cleanMetrics(metrics),meta={};for(const k of Object.keys(cm))meta[k]={source:'manual',confidence:1,reason:'用户手动填写'};
+ return {id:uid(),createdAt:nowISO(),updatedAt:nowISO(),text:text.trim(),title:text.trim().slice(0,28)||'新记录',status,importance:'low',tagIds:chosen.length?chosen:localGuessTagIds(text),manualTagOverride:chosen.length>0,metrics:cm,metricMeta:meta,attachments:[],analysis:null,analysisRaw:'',followups:[]};
 }
 
 function renderManualTagPicker(targetId,selectedSet){
@@ -182,33 +197,21 @@ function openCreateTag(context='settings'){
 
 function clearComposer(){
  $('#quickText').value='';for(const id of ['#metricMood','#metricEnergy','#metricStress','#metricSleep','#metricWeight'])$(id).value='';
- quickSelectedTagIds.clear();renderComposerTagPickers();
+ quickSelectedTagIds.clear();clearImageState('dashboard');renderComposerTagPickers();
 }
 async function saveOnly(text,metrics={},source='dashboard'){
- if(!text.trim())return;
- const selected=source==='modal'?[...modalSelectedTagIds]:[...quickSelectedTagIds];
- const e=buildEntry(text,metrics,'note',selected);await saveEntry(e);
- if(source==='modal'){closeModal('recordModal');$('#recordModalText').value='';modalSelectedTagIds.clear();renderComposerTagPickers();setStatus('#recordModalStatus','已实时保存到手机本地。','success')}else{clearComposer();setStatus('#composerStatus','已实时保存到手机本地。','success')}
- renderAll();
+ const attachment=attachmentFor(source);if(!text.trim()&&!attachment)return;
+ const selected=source==='modal'?[...modalSelectedTagIds]:[...quickSelectedTagIds];const actualText=text.trim()||attachment?.vision?.suggested_note||'[图片记录]';
+ const e=buildEntry(actualText,metrics,'note',selected);if(attachment){e.attachments=[attachment];mergeVisionMetrics(e,attachment.vision)}await saveEntry(e);
+ if(source==='modal'){closeModal('recordModal');$('#recordModalText').value='';modalSelectedTagIds.clear();clearImageState('modal');renderComposerTagPickers();setStatus('#recordModalStatus','已实时保存到手机本地。','success')}else{clearComposer();setStatus('#composerStatus','已实时保存到手机本地。','success')}renderAll();
 }
 async function analyzeText(text,metrics={},source='dashboard'){
- if(!text.trim())return;
- const statusSel=source==='modal'?'#recordModalStatus':'#composerStatus';
- setStatus(statusSel,'已先保存到本地，正在检索相关历史并分析…');
- const selected=source==='modal'?[...modalSelectedTagIds]:[...quickSelectedTagIds];
- const entry=buildEntry(text,metrics,'processing',selected);await saveEntry(entry);
- try{
-  const h=selectHistory(text,entry.id);
-  const d=await api('/api/analyze',{profile:state.profile,summaries:state.summaries.slice(-8),active_plans:activePlansForAI(),pending:null,mode:h.mode,recent:serializeEntries(h.recent),relevant:serializeEntries(h.relevant),text,tag_catalog:tagCatalog(),tag_feedback:feedbackExamples()});
-  entry.title=d.title||entry.title;
-  if(!entry.manualTagOverride){
-    const aiTags=tagIdsFromNames(d.tags||[]);
-    entry.tagIds=aiTags.length?aiTags:localGuessTagIds(text);
-  }
-  entry.metrics=mergeMetrics(entry.metrics,cleanMetrics(d.metrics||{}));entry.importance=d.importance||entry.importance;
-  if(d.need_clarification){entry.status='pending';await saveEntry(entry);await setPending({entryId:entry.id,questions:d.questions||[],createdAt:nowISO()});openPendingModal();setStatus(statusSel,'关键信息不足：已暂停判断，等待你补充。','success')}
-  else{entry.status='analyzed';entry.brief=d.brief||'';entry.analysis=d.analysis||null;await saveEntry(entry);await setPending(null);openAnalysis(entry.id);setStatus(statusSel,'分析完成，并已保存到本地。','success')}
-  if(source==='modal'){closeModal('recordModal');$('#recordModalText').value='';modalSelectedTagIds.clear();renderComposerTagPickers()}else clearComposer();renderAll();
+ let attachment=attachmentFor(source);if(!text.trim()&&!attachment)return;const statusSel=source==='modal'?'#recordModalStatus':'#composerStatus';setStatus(statusSel,'已先保存到本地，正在检索相关历史并分析…');
+ try{if(attachment&&!attachment.vision){await recognizeImage(source);attachment=attachmentFor(source)}}catch{}
+ const selected=source==='modal'?[...modalSelectedTagIds]:[...quickSelectedTagIds];const actualText=text.trim()||attachment?.vision?.suggested_note||attachment?.vision?.summary||'[图片记录]';const entry=buildEntry(actualText,metrics,'processing',selected);if(attachment){entry.attachments=[attachment];mergeVisionMetrics(entry,attachment.vision)}await saveEntry(entry);
+ try{const h=selectHistory(`${actualText} ${attachment?.vision?.summary||''}`,entry.id);const d=await api('/api/analyze',{profile:state.profile,summaries:state.summaries.slice(-8),active_plans:activePlansForAI(),pending:null,mode:h.mode,recent:serializeEntries(h.recent),relevant:serializeEntries(h.relevant),text:actualText,image_context:attachment?.vision||null,tag_catalog:tagCatalog(),tag_feedback:feedbackExamples()});entry.title=d.title||entry.title;if(!entry.manualTagOverride){const aiTags=tagIdsFromNames(d.tags||[]);entry.tagIds=aiTags.length?aiTags:localGuessTagIds(actualText)}mergeAIResultMetrics(entry,d);entry.importance=d.importance||entry.importance;
+  if(d.need_clarification){entry.status='pending';await saveEntry(entry);await setPending({entryId:entry.id,questions:d.questions||[],createdAt:nowISO()});openPendingModal();setStatus(statusSel,'关键信息不足：已暂停判断，等待你补充。','success')}else{entry.status='analyzed';entry.brief=d.brief||'';entry.analysis=d.analysis||null;await saveEntry(entry);await setPending(null);openAnalysis(entry.id);setStatus(statusSel,'分析完成，并已保存到本地。','success')}
+  if(source==='modal'){closeModal('recordModal');$('#recordModalText').value='';modalSelectedTagIds.clear();clearImageState('modal');renderComposerTagPickers()}else clearComposer();renderAll()
  }catch(err){entry.status='note';await saveEntry(entry);setStatus(statusSel,`分析失败，但记录已经保存在手机里：${err.message}`,'error');renderAll()}
 }
 async function submitPending(){
@@ -220,7 +223,7 @@ async function submitPending(){
   const h=selectHistory(combined,entry.id);const d=await api('/api/analyze',{profile:state.profile,summaries:state.summaries.slice(-8),active_plans:activePlansForAI(),pending:p.questions||[],mode:'deep',recent:serializeEntries(h.recent),relevant:serializeEntries(h.relevant),text:combined,followup:true,tag_catalog:tagCatalog(),tag_feedback:feedbackExamples()});
   entry.title=d.title||entry.title;
   if(!entry.manualTagOverride){const aiTags=tagIdsFromNames(d.tags||[]);if(aiTags.length)entry.tagIds=aiTags;}
-  entry.metrics=mergeMetrics(entry.metrics,cleanMetrics(d.metrics||{}));entry.importance=d.importance||entry.importance;
+  mergeAIResultMetrics(entry,d);entry.importance=d.importance||entry.importance;
   if(d.need_clarification){entry.status='pending';await saveEntry(entry);await setPending({entryId:entry.id,questions:d.questions||[],createdAt:nowISO()});$('#pendingReply').value='';renderPendingModal();setStatus('#pendingStatus','还缺少少量关键事实，新的问题已保存。')}
   else{entry.status='analyzed';entry.brief=d.brief||'';entry.analysis=d.analysis||null;await saveEntry(entry);await setPending(null);$('#pendingReply').value='';closeModal('pendingModal');openAnalysis(entry.id)}
   renderAll();
@@ -228,7 +231,7 @@ async function submitPending(){
 }
 
 function setStatus(sel,text,type=''){const el=$(sel);if(!el)return;el.textContent=text;el.className=`status-line ${type==='error'?'error-text':type==='success'?'success-text':''}`}
-function navigate(page){currentPage=page;$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${page}`));$$('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page));window.scrollTo({top:0,behavior:'smooth'});if(page==='insights')renderInsights();if(page==='records')renderRecords();if(page==='settings')renderSettings();if(page==='plans')renderPlans()}
+function navigate(page){currentPage=page;$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${page}`));$$('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page));window.scrollTo({top:0,behavior:'smooth'});if(page==='insights')renderInsights();if(page==='records')renderRecords();if(page==='settings')renderSettings();if(page==='plans')renderPlans();if(page==='ask')renderAsk()}
 function openModal(id){$('#'+id).classList.remove('hidden')}
 function closeModal(id){$('#'+id).classList.add('hidden')}
 
@@ -244,12 +247,12 @@ function renderPendingModal(){
 
 function importanceClass(x){return x==='high'?'importance-high':x==='medium'?'importance-medium':'importance-low'}
 function renderTagChips(ids=[]){return ids.map(id=>{const t=tagById(id);return t?`<span class="tag-chip" style="--tag-color:${t.color}">${escapeHTML(t.name)}</span>`:''}).join('')}
-function metricPills(m={}){const map={mood:'心情',energy:'精力',stress:'压力',sleep_hours:'睡眠h',weight_kg:'体重kg',workout_minutes:'运动min',reading_minutes:'阅读min'};return Object.entries(m||{}).filter(([k,v])=>map[k]&&v!==null&&v!==undefined).map(([k,v])=>`<span class="metric-pill">${map[k]} ${escapeHTML(v)}</span>`).join('')}
+function metricPills(m={},meta={}){const map={mood:'心情',energy:'精力',stress:'压力',sleep_hours:'睡眠h',weight_kg:'体重kg',workout_minutes:'运动min',reading_minutes:'阅读min'};return Object.entries(m||{}).filter(([k,v])=>map[k]&&v!==null&&v!==undefined).map(([k,v])=>{const mm=meta?.[k];const mark=mm?.source==='ai'?'≈':'';const tip=mm?.source==='ai'?` title="AI估算 · 置信度 ${Math.round((mm.confidence||0)*100)}%${mm.reason?' · '+escapeHTML(mm.reason):''}"`:'';return `<span class="metric-pill ${mm?.source==='ai'?'metric-ai':''}"${tip}>${map[k]} ${mark}${escapeHTML(v)}${['mood','energy','stress'].includes(k)?'/10':''}</span>`}).join('')}
 function analysisSummary(e){return e.brief||e.analysis?.judgment||e.analysisRaw||''}
 function renderTimelineCard(e,full=false){
  const date=new Date(e.createdAt);return `<article class="${full?'record-card':'timeline-card'}" data-entry-id="${e.id}">
  <div class="record-top"><div style="display:flex;gap:9px"><span class="importance-dot ${importanceClass(e.importance)}"></span><div><div class="record-title">${escapeHTML(e.title||e.text.slice(0,28))}</div><div class="record-time">${date.toLocaleString()}</div></div></div><span class="status-badge">${e.status==='pending'?'待补充':e.status==='analyzed'?'已分析':e.status==='processing'?'分析中':'记录'}</span></div>
- <div class="record-text">${escapeHTML(e.text)}</div><div class="record-tags">${renderTagChips(e.tagIds)}</div>${metricPills(e.metrics)?`<div class="metric-pills">${metricPills(e.metrics)}</div>`:''}
+ <div class="record-text">${escapeHTML(e.text)}</div>${e.attachments?.[0]?.dataUrl?`<img class="record-thumb" src="${e.attachments[0].dataUrl}" alt="记录图片">`:''}<div class="record-tags">${renderTagChips(e.tagIds)}</div>${metricPills(e.metrics,e.metricMeta)?`<div class="metric-pills">${metricPills(e.metrics,e.metricMeta)}</div>`:''}
  ${analysisSummary(e)?`<div class="analysis-preview">${escapeHTML(analysisSummary(e)).slice(0,220)}${analysisSummary(e).length>220?'…':''}</div>`:''}
  ${full?`<div class="record-actions"><button class="ghost-btn view-analysis" data-id="${e.id}">${e.status==='analyzed'?'查看分析':'查看详情'}</button><button class="ghost-btn edit-tags" data-id="${e.id}">编辑标签</button>${e.status==='pending'?`<button class="ghost-btn continue-pending" data-id="${e.id}">继续回答</button>`:''}<button class="ghost-btn delete-entry" data-id="${e.id}">删除</button></div>`:`<div class="record-actions"><button class="ghost-btn edit-tags" data-id="${e.id}">改标签</button>${e.status==='analyzed'?`<button class="ghost-btn view-analysis" data-id="${e.id}">看分析</button>`:''}</div>`}
  </article>`
@@ -263,7 +266,7 @@ function renderAnalysisHTML(e){
  return `<div class="eyebrow">${renderTagChips(e.tagIds)}</div><h2 class="analysis-title">${escapeHTML(e.title||'分析')}</h2>${e.brief?`<div class="analysis-brief">${escapeHTML(e.brief)}</div>`:''}
  <div class="analysis-section"><h3>问题核心</h3><p>${escapeHTML(a.core||'—')}</p></div>
  <div class="analysis-section"><h3>关键观察</h3>${list(a.observations)}</div>
- <div class="analysis-section analysis-judgment"><h3>Jarvis 的判断</h3><p>${escapeHTML(a.judgment||'—')}</p></div>
+ <div class="analysis-section analysis-judgment"><h3>Jarvis 的判断</h3><p>${escapeHTML(a.judgment||'—')}</p></div>${a.psychology?`<div class="analysis-section psychology-section"><h3>心理学 / 行为科学视角</h3><p>${escapeHTML(a.psychology)}</p></div>`:''}
  <div class="analysis-section analysis-actions"><h3>你现在怎么做</h3>${list(a.actions,true)}</div>
  ${a.plan_suggestion?`<div class="analysis-section"><h3>长期计划</h3><p>${escapeHTML(a.plan_suggestion)}</p></div>`:''}
  <div class="analysis-section analysis-uncertainty"><h3>仍有的不确定点</h3>${list(a.uncertainties)}</div>
@@ -275,7 +278,7 @@ async function deleteEntry(id){if(!confirm('删除这条记录？这个操作会
 
 function openTagEditor(id){editingEntryId=id;tagCreateContext='edit';const e=state.entries.find(x=>x.id===id);if(!e)return;$('#tagEditChoices').innerHTML=state.tags.map(t=>`<label class="tag-choice"><input type="checkbox" value="${t.id}" ${(e.tagIds||[]).includes(t.id)?'checked':''}><span style="border-color:${t.color}44">${escapeHTML(t.name)}</span></label>`).join('');openModal('tagEditModal')}
 async function saveEditedTags(){
- const e=state.entries.find(x=>x.id===editingEntryId);if(!e)return;const before=(e.tagIds||[]).map(tagName);const selected=$$('#tagEditChoices input:checked').map(x=>x.value);e.tagIds=selected.length?selected:['daily'];e.manualTagOverride=true;await saveEntry(e);const after=e.tagIds.map(tagName);if(JSON.stringify(before)!==JSON.stringify(after)){const f={id:uid(),createdAt:nowISO(),entryId:e.id,text:e.text,before,after};await dbPut('feedback',f);state.feedback.push(f)}closeModal('tagEditModal');renderAll();}
+ const e=state.entries.find(x=>x.id===editingEntryId);if(!e)return;const before=(e.tagIds||[]).map(tagName);const selected=$$('#tagEditChoices input:checked').map(x=>x.value);e.tagIds=selected;e.manualTagOverride=true;await saveEntry(e);const after=e.tagIds.map(tagName);if(JSON.stringify(before)!==JSON.stringify(after)){const f={id:uid(),createdAt:nowISO(),entryId:e.id,text:e.text,before,after};await dbPut('feedback',f);state.feedback.push(f)}closeModal('tagEditModal');renderAll();}
 async function createTag(){
  const name=$('#newTagName').value.trim(),color=$('#newTagColor').value;if(!name)return;
  const existing=state.tags.find(t=>t.name===name);
@@ -292,7 +295,7 @@ async function createTag(){
  if(tagCreateContext==='edit'&&editingEntryId)openTagEditor(editingEntryId);
 }
 async function renameTag(id){const t=tagById(id);if(!t)return;const name=prompt('新的标签名称：',t.name);if(!name||name.trim()===t.name)return;if(state.tags.some(x=>x.id!==id&&x.name===name.trim())){alert('已有同名标签');return}t.name=name.trim();await dbPut('tags',t);renderAll()}
-async function deleteTag(id){const t=tagById(id);if(!t||t.system){alert('系统标签不能删除，可以通过编辑记录改用其他标签。');return}if(!confirm(`删除标签“${t.name}”？记录不会被删除。`))return;await dbDelete('tags',id);state.tags=state.tags.filter(x=>x.id!==id);for(const e of state.entries){if((e.tagIds||[]).includes(id)){e.tagIds=e.tagIds.filter(x=>x!==id);if(!e.tagIds.length)e.tagIds=['daily'];await dbPut('entries',e)}}renderAll()}
+async function deleteTag(id){const t=tagById(id);if(!t)return;const msg=t.system?`删除内置标签“${t.name}”？现有记录不会删除，但该标签会从分类系统中移除。`:`删除标签“${t.name}”？现有记录不会删除。`;if(!confirm(msg))return;await dbDelete('tags',id);state.tags=state.tags.filter(x=>x.id!==id);for(const e of state.entries){if((e.tagIds||[]).includes(id)){e.tagIds=e.tagIds.filter(x=>x!==id);await dbPut('entries',e)}}for(const sp of state.spaces||[]){if((sp.tagIds||[]).includes(id)){sp.tagIds=sp.tagIds.filter(x=>x!==id);await dbPut('spaces',sp)}}if(activeRecordTag===id)activeRecordTag='all';renderAll()}
 
 function filteredEntries(){
  let arr=[...state.entries].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));const q=$('#recordSearch')?.value.trim().toLowerCase()||'',range=$('#recordRange')?.value||'all',status=$('#recordStatus')?.value||'all';
@@ -321,8 +324,17 @@ function drawLine(canvas,pts,key){const {ctx,w,h}=setupCanvas(canvas);ctx.clearR
 function renderTagBars(sel,entries){const el=$(sel),c=tagCounts(entries),rows=Object.entries(c).sort((a,b)=>b[1]-a[1]).slice(0,8),max=rows[0]?.[1]||1;if(!rows.length){el.innerHTML='<div class="muted-copy">还没有足够数据。</div>';return}el.innerHTML=rows.map(([id,n])=>{const t=tagById(id);return `<div class="tag-bar-row"><div class="tag-bar-name">${escapeHTML(t?.name||id)}</div><div class="tag-bar-track"><div class="tag-bar-fill" style="width:${n/max*100}%;${t?`background:linear-gradient(90deg,${t.color},#8ce6c2)`:''}"></div></div><div class="tag-bar-count">${n}</div></div>`}).join('')}
 function averageMetric(entries,key){const vals=entries.map(e=>e.metrics?.[key]).filter(v=>v!==undefined&&v!==null&&!Number.isNaN(Number(v))).map(Number);return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null}
 function insightEntries(){const v=$('#insightRange').value;if(v==='all')return state.entries;return recentEntries(Number(v))}
-function renderInsights(){const arr=insightEntries();$('#insightRecords').textContent=arr.length;const mood=averageMetric(arr,'mood'),sleep=averageMetric(arr,'sleep_hours');$('#insightMood').textContent=mood===null?'—':mood.toFixed(1);$('#insightSleep').textContent=sleep===null?'—':`${sleep.toFixed(1)}h`;const c=tagCounts(arr),top=Object.entries(c).sort((a,b)=>b[1]-a[1])[0];$('#insightTopTag').textContent=top?tagName(top[0]):'—';renderTrend('#insightTrendCanvas','#insightTrendEmpty',$('#insightMetricSelect').value,arr);renderTagBars('#insightTagBars',arr)}
-async function aiInsights(){const btn=$('#aiInsightBtn'),arr=insightEntries();if(!arr.length)return;btn.disabled=true;setStatus('#aiInsightStatus','正在解读当前趋势…');try{const counts=tagCounts(arr);const payload={range:$('#insightRange').value,stats:{records:arr.length,averages:{mood:averageMetric(arr,'mood'),energy:averageMetric(arr,'energy'),stress:averageMetric(arr,'stress'),sleep_hours:averageMetric(arr,'sleep_hours')},tags:Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([id,count])=>({tag:tagName(id),count})),metrics:['mood','energy','stress','sleep_hours','weight_kg','workout_minutes','reading_minutes'].reduce((o,k)=>(o[k]=aggregateMetric(arr,k),o),{})},profile:state.profile};const d=await api('/api/insights',payload);$('#aiInsightContent').innerHTML=`<div class="analysis-section analysis-judgment"><h3>${escapeHTML(d.headline||'趋势判断')}</h3>${(d.findings||[]).map(x=>`<p>• ${escapeHTML(x)}</p>`).join('')}</div><div class="analysis-section analysis-actions"><h3>建议</h3><ol>${(d.actions||[]).map(x=>`<li>${escapeHTML(x)}</li>`).join('')}</ol></div>`;setStatus('#aiInsightStatus','趋势解读完成。','success')}catch(e){setStatus('#aiInsightStatus',e.message,'error')}finally{btn.disabled=false}}
+function renderInsights(){const arr=insightEntries();$('#insightRecords').textContent=arr.length;const mood=averageMetric(arr,'mood'),energy=averageMetric(arr,'energy'),stress=averageMetric(arr,'stress'),sleep=averageMetric(arr,'sleep_hours');$('#insightMood').textContent=mood===null?'—':mood.toFixed(1);$('#insightEnergy').textContent=energy===null?'—':energy.toFixed(1);$('#insightStress').textContent=stress===null?'—':stress.toFixed(1);$('#insightSleep').textContent=sleep===null?'—':`${sleep.toFixed(1)}h`;const c=tagCounts(arr),top=Object.entries(c).sort((a,b)=>b[1]-a[1])[0];$('#insightTopTag').textContent=top?tagName(top[0]):'—';renderTrend('#insightTrendCanvas','#insightTrendEmpty',$('#insightMetricSelect').value,arr);renderTagBars('#insightTagBars',arr);renderInsightFocusOptions(c)}
+async function aiInsights(){
+ const btn=$('#aiInsightBtn'),arr=insightEntries();if(!arr.length)return;btn.disabled=true;setStatus('#aiInsightStatus','正在结合趋势、事件和心理学框架做深度分析…');
+ try{
+  const counts=tagCounts(arr),sortedTags=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  const focus=$('#insightFocusTag')?.value||'auto',focusId=focus==='auto'?(sortedTags[0]?.[0]||null):focus;
+  const focusEntries=focusId?arr.filter(e=>(e.tagIds||[]).includes(focusId)).slice(-40):arr.slice(-40);
+  const payload={range:$('#insightRange').value,focus_tag:focusId?tagName(focusId):null,profile:state.profile,stats:{records:arr.length,averages:{mood:averageMetric(arr,'mood'),energy:averageMetric(arr,'energy'),stress:averageMetric(arr,'stress'),sleep_hours:averageMetric(arr,'sleep_hours')},tags:sortedTags.slice(0,12).map(([id,count])=>({tag:tagName(id),count})),cooccurrence:tagCooccurrence(arr),metric_coverage:metricCoverage(arr),metrics:['mood','energy','stress','sleep_hours','weight_kg','workout_minutes','reading_minutes'].reduce((o,k)=>(o[k]=aggregateMetric(arr,k),o),{})},entries:serializeEntries(arr.slice(-120)),focus_events:serializeEntries(focusEntries),summaries:state.summaries.slice(-4)};
+  const d=await api('/api/insights',payload);$('#aiInsightContent').innerHTML=renderInsightAI(d);setStatus('#aiInsightStatus','深度趋势解读完成。','success');
+ }catch(e){setStatus('#aiInsightStatus',e.message,'error')}finally{btn.disabled=false}
+}
 
 function planProgressAdvice(p){const a=p.lastReview;if(!a)return'';return `<div class="plan-section"><div class="eyebrow">最近复盘 · ${escapeHTML(a.status||'')}</div><div class="muted-copy" style="margin-top:6px">${escapeHTML(a.summary||a.advice||'')}</div>${a.next_actions?.length?`<ul class="plan-list">${a.next_actions.map(x=>`<li>${escapeHTML(x)}</li>`).join('')}</ul>`:''}</div>`}
 function renderPlans(){const list=$('#planList'),arr=[...state.plans].sort((a,b)=>new Date(b.updatedAt||b.createdAt)-new Date(a.updatedAt||a.createdAt));$('#planEmpty').classList.toggle('hidden',arr.length>0);list.innerHTML=arr.map(p=>{const spec=p.spec||{};return `<article class="plan-card" data-plan-id="${p.id}"><div class="card-head"><div><h3>${escapeHTML(p.title||p.goal)}</h3><div class="plan-meta"><span>${escapeHTML(p.status||'active')}</span><span>${spec.duration_weeks?`${spec.duration_weeks} 周`:''}</span><span>进度 ${Math.round(p.progress||0)}%</span></div></div><button class="ghost-btn plan-delete" data-id="${p.id}">删除</button></div><div class="progress-track"><div class="progress-fill" style="width:${clamp(p.progress||0,0,100)}%"></div></div>${spec.success_metrics?.length?`<div class="plan-section"><div class="eyebrow">成功标准</div><ul class="plan-list">${spec.success_metrics.map(x=>`<li>${escapeHTML(x)}</li>`).join('')}</ul></div>`:''}${spec.milestones?.length?`<details class="plan-section"><summary>查看阶段里程碑</summary><div>${spec.milestones.map(m=>`<div style="margin-top:10px"><b>${escapeHTML(m.period||'')}</b> · ${escapeHTML(m.objective||'')}<ul class="plan-list">${(m.checklist||[]).map(x=>`<li>${escapeHTML(x)}</li>`).join('')}</ul></div>`).join('')}</div></details>`:''}${spec.first_7_days?.length?`<details class="plan-section" open><summary>前7天行动清单</summary><div>${spec.first_7_days.map(d=>`<div style="margin-top:9px"><b>${escapeHTML(d.day||'')}</b><ul class="plan-list">${(d.tasks||[]).map(t=>`<li>${escapeHTML(typeof t==='string'?t:t.task||'')}${typeof t==='object'&&t.minutes?` · ${escapeHTML(t.minutes)}分钟`:''}</li>`).join('')}</ul></div>`).join('')}</div></details>`:''}${spec.weekly_template?.length?`<details class="plan-section"><summary>每周固定安排</summary><div>${spec.weekly_template.map(d=>`<div style="margin-top:9px"><b>${escapeHTML(d.day||'')}</b><ul class="plan-list">${(d.tasks||[]).map(t=>`<li>${escapeHTML(typeof t==='string'?t:t.task||'')}${typeof t==='object'&&t.minutes?` · ${escapeHTML(t.minutes)}分钟`:''}</li>`).join('')}</ul></div>`).join('')}</div></details>`:''}${spec.review_rules?.length?`<details class="plan-section"><summary>复盘与调整规则</summary><ul class="plan-list">${spec.review_rules.map(x=>`<li>${escapeHTML(x)}</li>`).join('')}${(spec.fallback_rules||[]).map(x=>`<li>${escapeHTML(x)}</li>`).join('')}</ul></details>`:''}${planProgressAdvice(p)}<div class="plan-section"><div class="eyebrow">汇报进度</div><textarea class="checkin-area" data-plan-input="${p.id}" placeholder="例如：这周完成3次训练，周三加班没练，睡眠一般。"></textarea><button class="secondary-btn plan-review" data-id="${p.id}" style="width:100%;margin-top:8px">让 Jarvis 复盘并调整下一步</button><div class="status-line" data-plan-status="${p.id}"></div></div></article>`}).join('');$$('.plan-review').forEach(b=>b.onclick=()=>reviewPlan(b.dataset.id));$$('.plan-delete').forEach(b=>b.onclick=()=>deletePlan(b.dataset.id))}
@@ -331,27 +343,57 @@ async function reviewPlan(id){const p=state.plans.find(x=>x.id===id),input=$(`[d
 async function deletePlan(id){if(!confirm('删除这个长期计划？相关历史记录不会删除。'))return;await dbDelete('plans',id);state.plans=state.plans.filter(p=>p.id!==id);renderAll()}
 
 function renderSettings(){renderTagManager();fillProfile();renderSummaries()}
-function renderTagManager(){const counts=tagCounts(state.entries);$('#tagManagerList').innerHTML=[...state.tags].sort((a,b)=>(counts[b.id]||0)-(counts[a.id]||0)).map(t=>`<div class="tag-manager-item"><div class="tag-manager-left"><span class="tag-color-dot" style="background:${t.color}"></span><div><div class="tag-manager-name">${escapeHTML(t.name)}</div><div class="tag-count">${counts[t.id]||0} 条记录${t.system?' · 系统标签':' · 自定义'}</div></div></div><div class="tag-manager-actions"><button class="tiny-btn rename-tag" data-id="${t.id}">改名</button>${!t.system?`<button class="tiny-btn delete-tag" data-id="${t.id}">删除</button>`:''}</div></div>`).join('');$$('.rename-tag').forEach(b=>b.onclick=()=>renameTag(b.dataset.id));$$('.delete-tag').forEach(b=>b.onclick=()=>deleteTag(b.dataset.id))}
+function renderTagManager(){const counts=tagCounts(state.entries);$('#tagManagerList').innerHTML=[...state.tags].sort((a,b)=>(counts[b.id]||0)-(counts[a.id]||0)).map(t=>`<div class="tag-manager-item"><div class="tag-manager-left"><span class="tag-color-dot" style="background:${t.color}"></span><div><div class="tag-manager-name">${escapeHTML(t.name)}</div><div class="tag-count">${counts[t.id]||0} 条记录${t.system?' · 系统标签':' · 自定义'}</div></div></div><div class="tag-manager-actions"><button class="tiny-btn rename-tag" data-id="${t.id}">改名</button><button class="tiny-btn delete-tag" data-id="${t.id}">删除</button></div></div>`).join('');$$('.rename-tag').forEach(b=>b.onclick=()=>renameTag(b.dataset.id));$$('.delete-tag').forEach(b=>b.onclick=()=>deleteTag(b.dataset.id))}
 function fillProfile(){const p=state.profile;const map={profileName:'name',profileAge:'age',profileSex:'sex',profileHeight:'height',profileWeight:'weight',profileJob:'job',profileSchedule:'schedule',profileGoals:'goals',profileValues:'values',profileNotes:'notes'};for(const [id,k] of Object.entries(map))$('#'+id).value=p[k]||''}
 async function saveProfile(){const map={profileName:'name',profileAge:'age',profileSex:'sex',profileHeight:'height',profileWeight:'weight',profileJob:'job',profileSchedule:'schedule',profileGoals:'goals',profileValues:'values',profileNotes:'notes'},p={};for(const [id,k] of Object.entries(map))p[k]=$('#'+id).value.trim();state.profile=p;await metaSet('profile',p);setStatus('#profileStatus','长期档案已实时保存在手机本地。','success');renderDashboard();scheduleLocalSnapshot()}
 function renderSummaries(){const el=$('#summaryList');el.innerHTML=state.summaries.length?[...state.summaries].sort((a,b)=>a.days-b.days).map(s=>`<div class="summary-item"><div class="summary-title">最近 ${s.days} 天 · ${new Date(s.updatedAt||Date.now()).toLocaleDateString()}</div><div class="summary-text">${escapeHTML(s.summary||'')}</div>${s.patterns?.length?`<div class="record-tags" style="margin-top:7px">${s.patterns.slice(0,4).map(x=>`<span class="metric-pill">${escapeHTML(x)}</span>`).join('')}</div>`:''}</div>`).join(''):'<div class="muted-copy">还没有阶段总结。</div>'}
 async function updateSummary(days){const arr=state.entries.filter(e=>(Date.now()-new Date(e.createdAt))/86400000<=days);if(!arr.length){setStatus('#summaryStatus','这个时间范围还没有记录。');return}setStatus('#summaryStatus',`正在整理最近 ${days} 天的长期记忆…`);try{const d=await api('/api/summarize',{profile:state.profile,days,entries:serializeEntries(arr.slice(-350)),plans:activePlansForAI()});const s={days,updatedAt:nowISO(),...d};await dbPut('summaries',s);const i=state.summaries.findIndex(x=>x.days===days);if(i>=0)state.summaries[i]=s;else state.summaries.push(s);renderSummaries();setStatus('#summaryStatus','阶段总结已更新。','success')}catch(e){setStatus('#summaryStatus',e.message,'error')}}
 
-async function exportData(){const data=await collectBackup();const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`jarvis-v4-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);setStatus('#backupStatus','备份文件已生成。iPhone 可选择保存到“文件 → 我的 iPhone”。','success')}
-async function collectBackup(){return{version:4,exportedAt:nowISO(),profile:state.profile,pending:state.pending,entries:state.entries,plans:state.plans,summaries:state.summaries,tags:state.tags,feedback:state.feedback}}
-async function applyBackupData(d){if(!Array.isArray(d.entries))throw new Error('备份格式不正确');for(const s of ['entries','plans','summaries','tags','feedback'])await dbClear(s);for(const x of d.entries||[])await dbPut('entries',x);for(const x of d.plans||[])await dbPut('plans',x);for(const x of d.summaries||[])await dbPut('summaries',x);for(const x of d.tags?.length?d.tags:DEFAULT_TAGS)await dbPut('tags',x);for(const x of d.feedback||[])await dbPut('feedback',x);await metaSet('profile',d.profile||{});await metaSet('pending',d.pending||null);await loadState();renderAll()}
+async function exportData(){const data=await collectBackup();const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`jarvis-v5-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);setStatus('#backupStatus','备份文件已生成。iPhone 可选择保存到“文件 → 我的 iPhone”。','success')}
+async function collectBackup(){return{version:5,exportedAt:nowISO(),profile:state.profile,pending:state.pending,entries:state.entries,plans:state.plans,summaries:state.summaries,tags:state.tags,feedback:state.feedback,spaces:state.spaces,conversations:state.conversations}}
+async function applyBackupData(d){if(!Array.isArray(d.entries))throw new Error('备份格式不正确');for(const s of ['entries','plans','summaries','tags','feedback','spaces','conversations'])await dbClear(s);for(const x of d.entries||[])await dbPut('entries',x);for(const x of d.plans||[])await dbPut('plans',x);for(const x of d.summaries||[])await dbPut('summaries',x);for(const x of d.tags?.length?d.tags:DEFAULT_TAGS)await dbPut('tags',x);for(const x of d.feedback||[])await dbPut('feedback',x);for(const x of d.spaces||[])await dbPut('spaces',x);for(const x of d.conversations||[])await dbPut('conversations',x);if(!(d.spaces||[]).length)await seedSpaces();await metaSet('profile',d.profile||{});await metaSet('pending',d.pending||null);await loadState();renderAll()}
 async function importData(file){const d=JSON.parse(await file.text());await applyBackupData(d);setStatus('#backupStatus','备份已导入。','success')}
 async function createSnapshot(auto=false){const data=await collectBackup(),snap={id:uid(),createdAt:nowISO(),auto,data};await dbPut('snapshots',snap);let all=(await dbGetAll('snapshots')).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));for(const x of all.slice(10))await dbDelete('snapshots',x.id);await metaSet('last_snapshot_at',snap.createdAt);if(!auto)setStatus('#backupStatus','已在手机本地创建恢复点。','success')}
 let snapshotTimer=null;function scheduleLocalSnapshot(){if(snapshotTimer)clearTimeout(snapshotTimer);snapshotTimer=setTimeout(async()=>{const last=await metaGet('last_snapshot_at',null);if(!last||Date.now()-new Date(last)>6*3600000)createSnapshot(true)},1200)}
 async function restoreSnapshot(){const all=(await dbGetAll('snapshots')).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));if(!all.length){setStatus('#backupStatus','还没有本地恢复点。');return}const s=all[0];if(!confirm(`恢复到 ${new Date(s.createdAt).toLocaleString()} 的本地恢复点？当前数据会被替换。`))return;await applyBackupData(s.data);setStatus('#backupStatus','已恢复最近的本地恢复点。','success')}
 
-function renderAll(){renderDashboard();renderRecords();renderPlans();renderInsights();renderSettings();renderComposerTagPickers()}
+// ----- v5 multimodal / metrics / deep insights / Ask Jarvis -----
+function imageStateFor(source){return source==='modal'?modalImage:source==='ask'?askImage:quickImage}
+function setImageState(source,value){if(source==='modal')modalImage=value;else if(source==='ask')askImage=value;else quickImage=value;renderImagePreview(source)}
+function clearImageState(source){setImageState(source,null)}
+function imageEls(source){if(source==='modal')return{input:'#modalImageInput',preview:'#modalImagePreview',recognize:'#modalRecognizeBtn',text:'#recordModalText'};if(source==='ask')return{input:'#askImageInput',preview:'#askImagePreview',recognize:null,text:'#askText'};return{input:'#quickImageInput',preview:'#quickImagePreview',recognize:'#quickRecognizeBtn',text:'#quickText'}}
+function renderImagePreview(source){const st=imageStateFor(source),els=imageEls(source),box=$(els.preview);if(!box)return;if(!st){box.classList.add('hidden');box.innerHTML='';if(els.recognize)$(els.recognize)?.classList.add('hidden');return}box.classList.remove('hidden');box.innerHTML=`<img src="${st.dataUrl}" alt="待分析图片"><div class="image-preview-meta"><b>${escapeHTML(st.name||'图片')}</b><span>${st.vision?'已识别':'等待识别'}</span><button type="button" class="tiny-btn remove-image">移除</button></div>${st.vision?`<div class="vision-note">${escapeHTML(st.vision.summary||st.vision.description||'已完成识别')}</div>`:''}`;box.querySelector('.remove-image').onclick=()=>clearImageState(source);if(els.recognize)$(els.recognize)?.classList.remove('hidden')}
+async function compressImage(file){return new Promise((resolve,reject)=>{const img=new Image(),url=URL.createObjectURL(file);img.onload=()=>{try{const max=1280,scale=Math.min(1,max/Math.max(img.width,img.height)),w=Math.max(1,Math.round(img.width*scale)),h=Math.max(1,Math.round(img.height*scale)),c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);const dataUrl=c.toDataURL('image/jpeg',.78);URL.revokeObjectURL(url);resolve({dataUrl,name:file.name||'image.jpg',width:w,height:h})}catch(e){reject(e)}};img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('图片读取失败'))};img.src=url})}
+async function chooseImage(source,file){if(!file)return;try{const x=await compressImage(file);setImageState(source,{...x,vision:null})}catch(e){alert(e.message)}}
+async function recognizeImage(source){const st=imageStateFor(source);if(!st)return null;const statusSel=source==='modal'?'#recordModalStatus':source==='ask'?'#askStatus':'#composerStatus';setStatus(statusSel,'正在识别图片内容…');try{const d=await api('/api/vision',{image:st.dataUrl,tag_catalog:tagCatalog(),profile:state.profile});st.vision=d;setImageState(source,st);if(source!=='ask'&&d.suggested_note){const el=$(imageEls(source).text);if(el&&!el.value.trim())el.value=d.suggested_note}setStatus(statusSel,'图片识别完成。','success');return d}catch(e){setStatus(statusSel,`识图失败：${e.message}`,'error');throw e}}
+function attachmentFor(source){const st=imageStateFor(source);return st?{kind:'image',name:st.name,dataUrl:st.dataUrl,vision:st.vision||null}:null}
+function mergeAIResultMetrics(entry,d){entry.metricMeta=entry.metricMeta||{};entry.metrics=entry.metrics||{};for(const [k,v] of Object.entries(cleanMetrics(d.metrics||{}))){if(['manual','vision'].includes(entry.metricMeta?.[k]?.source))continue;entry.metrics[k]=v;entry.metricMeta[k]={source:'ai',confidence:Number(d.metric_meta?.[k]?.confidence||0.6),reason:d.metric_meta?.[k]?.reason||'根据记录内容估算'}}}
+function mergeVisionMetrics(entry,vision){if(!vision)return;entry.metricMeta=entry.metricMeta||{};entry.metrics=entry.metrics||{};for(const [k,v] of Object.entries(cleanMetrics(vision.metrics||{}))){if(entry.metricMeta?.[k]?.source==='manual')continue;entry.metrics[k]=v;entry.metricMeta[k]={source:'vision',confidence:0.95,reason:'从图片中明确识别出的数值'}}if(!entry.manualTagOverride){const ids=tagIdsFromNames(vision.tags||[]);if(ids.length)entry.tagIds=ids}}
+function renderInsightFocusOptions(counts){const sel=$('#insightFocusTag');if(!sel)return;const current=sel.value||'auto';sel.innerHTML='<option value="auto">自动选择高频主题</option>'+Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,12).map(([id,n])=>`<option value="${id}">${escapeHTML(tagName(id))} · ${n}次</option>`).join('');if([...sel.options].some(o=>o.value===current))sel.value=current}
+function metricCoverage(entries){const keys=['mood','energy','stress','sleep_hours','weight_kg','workout_minutes','reading_minutes'],o={};for(const k of keys)o[k]={count:entries.filter(e=>e.metrics?.[k]!==undefined&&e.metrics?.[k]!==null).length,total:entries.length};return o}
+function tagCooccurrence(entries){const c={};for(const e of entries){const ids=[...new Set(e.tagIds||[])];for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++){const a=tagName(ids[i]),b=tagName(ids[j]),k=[a,b].sort().join(' + ');c[k]=(c[k]||0)+1}}return Object.entries(c).sort((a,b)=>b[1]-a[1]).slice(0,12).map(([pair,count])=>({pair,count}))}
+function renderInsightAI(d){const bullets=a=>(a||[]).map(x=>`<li>${escapeHTML(typeof x==='string'?x:x.text||x.finding||'')}</li>`).join('');const actions=(d.actions||[]).map((x,i)=>`<div class="action-card"><b>${i+1}. ${escapeHTML(x.action||x)}</b>${x.why?`<p>为什么：${escapeHTML(x.why)}</p>`:''}${x.how?`<p>怎么做：${escapeHTML(x.how)}</p>`:''}${x.measure?`<p>怎么验证：${escapeHTML(x.measure)}</p>`:''}</div>`).join('');return `<div class="analysis-section analysis-judgment"><h3>${escapeHTML(d.headline||'趋势判断')}</h3><p>${escapeHTML(d.summary||'')}</p></div>${d.data_evidence?.length?`<div class="analysis-section"><h3>数据依据</h3><ul>${bullets(d.data_evidence)}</ul></div>`:''}${d.patterns?.length?`<div class="analysis-section"><h3>反复出现的模式</h3><ul>${bullets(d.patterns)}</ul></div>`:''}${d.focus_analysis?`<div class="analysis-section focus-analysis"><h3>重点事件 / 高频主题分析</h3><p>${escapeHTML(d.focus_analysis)}</p></div>`:''}${d.psychology_lens?`<div class="analysis-section psychology-section"><h3>心理学 / 行为科学视角</h3><p><b>${escapeHTML(d.psychology_lens.theory||'')}</b></p><p>${escapeHTML(d.psychology_lens.application||'')}</p>${d.psychology_lens.limits?`<p class="muted-copy">边界：${escapeHTML(d.psychology_lens.limits)}</p>`:''}</div>`:''}${actions?`<div class="analysis-section analysis-actions"><h3>具体行动建议</h3>${actions}</div>`:''}${d.questions_to_track?.length?`<div class="analysis-section analysis-uncertainty"><h3>接下来值得继续记录</h3><ul>${bullets(d.questions_to_track)}</ul></div>`:''}${d.caveat?`<p class="muted-copy">${escapeHTML(d.caveat)}</p>`:''}`}
+
+async function saveSpace(space){await dbPut('spaces',space);const i=state.spaces.findIndex(x=>x.id===space.id);if(i>=0)state.spaces[i]=space;else state.spaces.push(space)}
+async function saveConversation(msg){await dbPut('conversations',msg);state.conversations.push(msg);state.conversations.sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt))}
+function currentSpace(){return state.spaces.find(x=>x.id===selectedSpaceId)||state.spaces[0]}
+function spaceRelevantEntries(space,question){if(!space||space.id==='general')return selectHistory(question).relevant.concat(selectHistory(question).recent).slice(-100);const tagged=state.entries.filter(e=>(space.tagIds||[]).some(id=>(e.tagIds||[]).includes(id)));const q=grams(`${space.name} ${question}`);const scored=state.entries.filter(e=>!tagged.includes(e)).map(e=>{const eg=grams(`${e.text} ${(e.tagIds||[]).map(tagName).join(' ')}`);let common=0;q.forEach(g=>{if(eg.has(g))common++});return[common,e]}).filter(x=>x[0]>0).sort((a,b)=>b[0]-a[0]).map(x=>x[1]);return [...new Map([...tagged,...scored].map(e=>[e.id,e])).values()].slice(-120)}
+function renderAsk(){if(!$('#askSpaceList'))return;if(!state.spaces.length)return;const sp=currentSpace();if(!sp){selectedSpaceId=state.spaces[0].id;return renderAsk()}$('#askSpaceTitle').textContent=sp.name;$('#askSpaceEyebrow').textContent=sp.system?'系统专题':'自定义专题';$('#askSpaceList').innerHTML=state.spaces.map(x=>`<button class="space-btn ${x.id===sp.id?'active':''}" data-id="${x.id}"><span>${escapeHTML(x.name)}</span><small>${escapeHTML(x.description||'')}</small></button>`).join('');$$('#askSpaceList .space-btn').forEach(b=>b.onclick=()=>{selectedSpaceId=b.dataset.id;renderAsk()});const msgs=state.conversations.filter(m=>m.spaceId===sp.id).slice(-60);$('#askThread').innerHTML=msgs.length?msgs.map(renderChatMessage).join(''):'<div class="ask-empty"><b>可以直接问我任何生活问题。</b><p>我会先查相关记录；如果事实不足，会先向你补问，而不是硬猜。</p></div>';$('#askThread').scrollTop=$('#askThread').scrollHeight;renderImagePreview('ask')}
+function renderChatMessage(m){if(m.role==='user')return `<div class="chat-row user"><div class="chat-bubble user-bubble">${m.imageThumb?`<img class="chat-image" src="${m.imageThumb}" alt="提问图片">`:''}<p>${escapeHTML(m.text)}</p></div></div>`;const d=m.data||{};if(d.need_clarification)return `<div class="chat-row assistant"><div class="chat-bubble"><div class="eyebrow">我还需要确认</div>${(d.questions||[]).map((q,i)=>`<div class="clarify-q"><b>${i+1}. ${escapeHTML(q.question||q)}</b>${q.reason?`<small>${escapeHTML(q.reason)}</small>`:''}</div>`).join('')}</div></div>`;return `<div class="chat-row assistant"><div class="chat-bubble"><div class="eyebrow">JARVIS</div>${d.answer?`<p class="chat-answer">${escapeHTML(d.answer)}</p>`:''}${d.evidence?.length?`<details open><summary>我为什么这样判断</summary><ul>${d.evidence.map(x=>`<li>${escapeHTML(x)}</li>`).join('')}</ul></details>`:''}${d.psychology?`<div class="chat-theory"><b>${escapeHTML(d.psychology.theory||'心理学视角')}</b><p>${escapeHTML(d.psychology.analysis||'')}</p>${d.psychology.limit?`<small>${escapeHTML(d.psychology.limit)}</small>`:''}</div>`:''}${d.alternatives?.length?`<details><summary>其他可能性</summary><ul>${d.alternatives.map(x=>`<li>${escapeHTML(x)}</li>`).join('')}</ul></details>`:''}${d.actions?.length?`<div class="chat-actions"><b>你现在可以做</b><ol>${d.actions.map(x=>`<li>${escapeHTML(typeof x==='string'?x:x.action||'')}</li>`).join('')}</ol></div>`:''}${d.caution?`<small class="chat-caution">${escapeHTML(d.caution)}</small>`:''}</div></div>`}
+async function createSpace(){const name=prompt('专题名称：例如 公务员考试、减脂、工作发展');if(!name?.trim())return;const tagText=prompt('优先关联哪些现有标签？可留空；多个用逗号分隔。','');const names=(tagText||'').split(/[,，]/).map(x=>x.trim()).filter(Boolean),tagIds=tagIdsFromNames(names);const sp={id:`space-${uid()}`,name:name.trim(),system:false,tagIds,description:tagIds.length?`优先读取：${tagIds.map(tagName).join('、')}`:'根据专题名称和问题自动检索相关记录',createdAt:nowISO()};await saveSpace(sp);selectedSpaceId=sp.id;renderAsk()}
+async function clearAsk(){const sp=currentSpace();if(!sp||!confirm(`清空「${sp.name}」的问答历史？生活记录不会删除。`))return;for(const m of state.conversations.filter(x=>x.spaceId===sp.id))await dbDelete('conversations',m.id);state.conversations=state.conversations.filter(x=>x.spaceId!==sp.id);renderAsk()}
+async function askJarvis(){const text=$('#askText').value.trim();if(!text&&!askImage)return;const sp=currentSpace();if(!sp)return;const btn=$('#askSendBtn');btn.disabled=true;setStatus('#askStatus','正在查找与你的问题最相关的生活记录…');try{let vision=askImage?.vision||null;if(askImage&&!vision)vision=await recognizeImage('ask');const userMsg={id:uid(),spaceId:sp.id,role:'user',text:text||'请分析这张图片。',imageThumb:askImage?.dataUrl||null,image_context:vision||null,createdAt:nowISO()};await saveConversation(userMsg);renderAsk();const rel=spaceRelevantEntries(sp,text||vision?.summary||'图片');const h=selectHistory(`${sp.name} ${text}`);const history=state.conversations.filter(m=>m.spaceId===sp.id).slice(-12).map(m=>({role:m.role,text:m.text,data:m.role==='assistant'?m.data:null}));const d=await api('/api/ask',{space:{name:sp.name,description:sp.description,tag_names:(sp.tagIds||[]).map(tagName)},question:text||'请分析这张图片。',image_context:vision,profile:state.profile,summaries:state.summaries.slice(-6),active_plans:activePlansForAI(),recent:serializeEntries(h.recent),relevant:serializeEntries(rel),conversation_history:history});await saveConversation({id:uid(),spaceId:sp.id,role:'assistant',text:d.answer||'',data:d,createdAt:nowISO()});$('#askText').value='';clearImageState('ask');renderAsk();setStatus('#askStatus',d.need_clarification?'还缺少关键事实，我先问你几个问题。':'分析完成。','success')}catch(e){setStatus('#askStatus',e.message,'error')}finally{btn.disabled=false}}
+
+function renderAll(){renderDashboard();renderRecords();renderPlans();renderInsights();renderSettings();renderComposerTagPickers();renderAsk()}
 
 function bindEvents(){
  $$('[data-page]').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.page)));$$('[data-goto]').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.goto)));$$('[data-close]').forEach(b=>b.addEventListener('click',()=>closeModal(b.dataset.close)));$$('.modal-backdrop').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)closeModal(m.id)}));
  $('#quickAddTop').onclick=()=>{modalSelectedTagIds.clear();renderComposerTagPickers();openModal('recordModal')};$('#newRecordBtn').onclick=()=>{modalSelectedTagIds.clear();renderComposerTagPickers();openModal('recordModal')};
  $('#saveOnlyBtn').onclick=()=>saveOnly($('#quickText').value,manualMetrics());$('#analyzeBtn').onclick=()=>analyzeText($('#quickText').value,manualMetrics());
  $('#modalSaveOnly').onclick=()=>saveOnly($('#recordModalText').value,{},'modal');$('#modalAnalyze').onclick=()=>analyzeText($('#recordModalText').value,{},'modal');
+ $('#quickImageBtn').onclick=()=>$('#quickImageInput').click();$('#quickImageInput').onchange=e=>chooseImage('dashboard',e.target.files[0]);$('#quickRecognizeBtn').onclick=()=>recognizeImage('dashboard');
+ $('#modalImageBtn').onclick=()=>$('#modalImageInput').click();$('#modalImageInput').onchange=e=>chooseImage('modal',e.target.files[0]);$('#modalRecognizeBtn').onclick=()=>recognizeImage('modal');
+ $('#askImageBtn').onclick=()=>$('#askImageInput').click();$('#askImageInput').onchange=e=>chooseImage('ask',e.target.files[0]);$('#askSendBtn').onclick=askJarvis;$('#newSpaceBtn').onclick=createSpace;$('#clearAskBtn').onclick=clearAsk;
  $('#quickNewTagBtn').onclick=()=>openCreateTag('quick');$('#modalNewTagBtn').onclick=()=>openCreateTag('modal');
  $('#submitPendingBtn').onclick=submitPending;$('#saveEntryTagsBtn').onclick=saveEditedTags;$('#newTagBtn').onclick=()=>openCreateTag('settings');$('#tagEditNewTagBtn').onclick=()=>openCreateTag('edit');$('#createTagBtn').onclick=createTag;
  $('#recordSearch').oninput=renderRecords;$('#recordRange').onchange=renderRecords;$('#recordStatus').onchange=renderRecords;
@@ -362,6 +404,6 @@ function bindEvents(){
 }
 
 async function init(){
- try{db=await openDB();await seedTags();state.tags=await dbGetAll('tags');await migrateV3IfNeeded();await loadState();bindEvents();renderAll();if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});scheduleLocalSnapshot()}catch(e){document.body.innerHTML=`<div style="padding:30px;color:white;font-family:system-ui"><h2>Jarvis 启动失败</h2><p>${escapeHTML(e.message)}</p></div>`}
+ try{db=await openDB();await seedTags();state.tags=await dbGetAll('tags');await seedSpaces();await migrateV3IfNeeded();await loadState();bindEvents();renderAll();if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});scheduleLocalSnapshot()}catch(e){document.body.innerHTML=`<div style="padding:30px;color:white;font-family:system-ui"><h2>Jarvis 启动失败</h2><p>${escapeHTML(e.message)}</p></div>`}
 }
 init();

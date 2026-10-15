@@ -10,7 +10,7 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/icon-180.png">
 <link rel="stylesheet" href="/app.css">
-<title>Jarvis 4.1</title>
+<title>Jarvis 5.0</title>
 </head>
 <body>
 <div class="app-shell">
@@ -18,7 +18,7 @@
     <div class="brand-wrap">
       <div class="brand-orb" aria-hidden="true"></div>
       <div>
-        <div class="brand">JARVIS <span class="version">4.1</span></div>
+        <div class="brand">JARVIS <span class="version">5.0</span></div>
         <div class="subtitle">PERSONAL INTELLIGENCE SYSTEM</div>
       </div>
     </div>
@@ -33,6 +33,7 @@
     <button class="nav-btn" data-page="records">记录</button>
     <button class="nav-btn" data-page="plans">计划</button>
     <button class="nav-btn" data-page="insights">洞察</button>
+    <button class="nav-btn" data-page="ask">问答</button>
     <button class="nav-btn" data-page="settings">设置</button>
   </nav>
 
@@ -54,8 +55,14 @@
             </div>
             <div class="manual-tag-picker" id="quickTagPicker"></div>
           </div>
+          <div class="image-tools">
+            <input id="quickImageInput" class="hidden" type="file" accept="image/*">
+            <button class="secondary-btn image-pick-btn" id="quickImageBtn" type="button">🖼 添加图片</button>
+            <button class="secondary-btn image-recognize-btn hidden" id="quickRecognizeBtn" type="button">🔎 识图</button>
+            <div class="image-preview hidden" id="quickImagePreview"></div>
+          </div>
           <details class="metric-details">
-            <summary>补充量化状态（可选）</summary>
+            <summary>补充量化状态（可选）</summary><div class="metric-hint">手填数值优先；如果不填，选择“记录并分析”后，Jarvis 会在文字信号足够清晰时保守估算情绪 / 精力 / 压力，并用 ≈ 标记。</div>
             <div class="metric-grid">
               <label>心情 1-10<input id="metricMood" type="number" min="1" max="10" step="1" inputmode="numeric"></label>
               <label>精力 1-10<input id="metricEnergy" type="number" min="1" max="10" step="1" inputmode="numeric"></label>
@@ -164,9 +171,12 @@
         </select>
       </div>
 
-      <div class="stats-grid insight-stats">
+      <p class="muted-copy metric-source-note">状态数值为 1–10 分；手填优先，AI 估算只在信息足够时补充。分析详情中 ≈ 表示 AI 估算。</p>
+      <div class="stats-grid insight-stats insight-stats-v5">
         <div class="stat-card"><div class="stat-label">记录数</div><div class="stat-value" id="insightRecords">0</div></div>
-        <div class="stat-card"><div class="stat-label">平均心情</div><div class="stat-value" id="insightMood">—</div></div>
+        <div class="stat-card"><div class="stat-label">平均心情</div><div class="stat-value" id="insightMood">—</div><div class="stat-sub">/10</div></div>
+        <div class="stat-card"><div class="stat-label">平均精力</div><div class="stat-value" id="insightEnergy">—</div><div class="stat-sub">/10</div></div>
+        <div class="stat-card"><div class="stat-label">平均压力</div><div class="stat-value" id="insightStress">—</div><div class="stat-sub">/10</div></div>
         <div class="stat-card"><div class="stat-label">平均睡眠</div><div class="stat-value" id="insightSleep">—</div></div>
         <div class="stat-card"><div class="stat-label">高频主题</div><div class="stat-value small-value" id="insightTopTag">—</div></div>
       </div>
@@ -194,9 +204,39 @@
           <div class="tag-bars" id="insightTagBars"></div>
         </div>
         <div class="card">
-          <div class="card-head"><div><div class="eyebrow">Jarvis</div><h2>趋势解读</h2></div><button class="secondary-btn small-btn" id="aiInsightBtn">AI 解读</button></div>
-          <div id="aiInsightContent" class="muted-copy">点击“AI 解读”，Jarvis 会基于当前区间的数据和标签分布给出简洁趋势判断。</div>
+          <div class="card-head insight-ai-head"><div><div class="eyebrow">Jarvis</div><h2>深度趋势解读</h2></div><button class="secondary-btn small-btn" id="aiInsightBtn">AI 深度分析</button></div>
+          <div class="focus-tag-row"><label>重点分析<select id="insightFocusTag" class="mini-select"><option value="auto">自动选择高频主题</option></select></label></div>
+          <div id="aiInsightContent" class="muted-copy">Jarvis 会结合数值趋势、高频标签、共现事件和相关记录，解释“发生了什么、可能为什么、你可以怎么做”。</div>
           <div class="status-line" id="aiInsightStatus"></div>
+        </div>
+      </div>
+    </section>
+
+
+    <section class="page" id="page-ask">
+      <div class="page-head">
+        <div><div class="eyebrow">ASK JARVIS</div><h1>Jarvis 问答</h1><p>自由提问。Jarvis 会先读取你的长期记录、相关事件和专题历史；信息不足时会先追问。</p></div>
+        <button class="secondary-btn small-btn" id="newSpaceBtn">＋ 新建专题</button>
+      </div>
+      <div class="ask-layout">
+        <aside class="card ask-sidebar">
+          <div class="eyebrow">专题空间</div>
+          <div id="askSpaceList" class="space-list"></div>
+          <p class="muted-copy ask-tip">例如：关系专题、公务员考试、减脂、工作发展。专题会优先调用与它相关的记录。</p>
+        </aside>
+        <div class="card ask-main">
+          <div class="card-head"><div><div class="eyebrow" id="askSpaceEyebrow">当前专题</div><h2 id="askSpaceTitle">全局问答</h2></div><button class="ghost-btn" id="clearAskBtn">清空对话</button></div>
+          <div id="askThread" class="ask-thread"></div>
+          <div class="ask-compose">
+            <textarea id="askText" class="ask-textarea" placeholder="例如：根据我最近一个月的记录，为什么我总在下午效率下降？如果信息不够，先问我。"></textarea>
+            <div class="image-tools ask-image-tools">
+              <input id="askImageInput" class="hidden" type="file" accept="image/*">
+              <button class="secondary-btn" id="askImageBtn" type="button">🖼 添加图片</button>
+              <div class="image-preview hidden" id="askImagePreview"></div>
+            </div>
+            <button class="primary-btn" id="askSendBtn">向 Jarvis 提问</button>
+            <div class="status-line" id="askStatus"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -267,6 +307,7 @@
   <button class="mobile-nav-btn" data-page="records"><span>☰</span><small>记录</small></button>
   <button class="mobile-nav-btn" data-page="plans"><span>✓</span><small>计划</small></button>
   <button class="mobile-nav-btn" data-page="insights"><span>⌁</span><small>洞察</small></button>
+  <button class="mobile-nav-btn" data-page="ask"><span>?</span><small>问答</small></button>
   <button class="mobile-nav-btn" data-page="settings"><span>⚙</span><small>设置</small></button>
 </nav>
 
@@ -304,6 +345,12 @@
     <button class="modal-close" data-close="recordModal">×</button>
     <div class="eyebrow">QUICK LOG</div><h2>新记录</h2>
     <textarea id="recordModalText" class="tall" placeholder="今天发生了什么？"></textarea>
+    <div class="image-tools">
+      <input id="modalImageInput" class="hidden" type="file" accept="image/*">
+      <button class="secondary-btn" id="modalImageBtn" type="button">🖼 添加图片</button>
+      <button class="secondary-btn hidden" id="modalRecognizeBtn" type="button">🔎 识图</button>
+      <div class="image-preview hidden" id="modalImagePreview"></div>
+    </div>
     <div class="composer-tag-box modal-tag-box">
       <div class="composer-tag-head">
         <div>
