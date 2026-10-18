@@ -10,7 +10,7 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/icon-180.png">
 <link rel="stylesheet" href="/app.css">
-<title>Jarvis 5.0</title>
+<title>Jarvis 5.0.2 私人版</title>
 </head>
 <body>
 <div class="app-shell">
@@ -18,7 +18,7 @@
     <div class="brand-wrap">
       <div class="brand-orb" aria-hidden="true"></div>
       <div>
-        <div class="brand">JARVIS <span class="version">5.0</span></div>
+        <div class="brand">JARVIS <span class="version">5.0.2</span></div>
         <div class="subtitle">PERSONAL INTELLIGENCE SYSTEM</div>
       </div>
     </div>
@@ -225,20 +225,26 @@
           <p class="muted-copy ask-tip">例如：关系专题、公务员考试、减脂、工作发展。专题会优先调用与它相关的记录。</p>
         </aside>
         <div class="card ask-main">
-          <div class="card-head"><div><div class="eyebrow" id="askSpaceEyebrow">当前专题</div><h2 id="askSpaceTitle">全局问答</h2></div><button class="ghost-btn" id="clearAskBtn">清空对话</button></div>
+          <div class="card-head"><div><div class="eyebrow" id="askSpaceEyebrow">当前专题</div><h2 id="askSpaceTitle">全局问答</h2></div><button class="primary-btn small-btn" id="askNewTopicBtn">＋ 新话题</button></div>
+          <div class="ask-topics-head"><b>话题列表</b><span>每个问题单独整理，不用翻整段历史</span></div>
+          <div id="askTopicList" class="ask-topic-list"></div>
+          <div class="ask-conversation-bar"><strong id="askActiveTopic">新话题</strong><button class="ghost-btn ask-delete-current" id="clearAskBtn">删除当前话题</button></div>
           <div id="askThread" class="ask-thread"></div>
-          <div class="ask-compose">
+          <div class="ask-compose" id="askComposeBox">
             <textarea id="askText" class="ask-textarea" placeholder="例如：根据我最近一个月的记录，为什么我总在下午效率下降？如果信息不够，先问我。"></textarea>
             <div class="image-tools ask-image-tools">
               <input id="askImageInput" class="hidden" type="file" accept="image/*">
               <button class="secondary-btn" id="askImageBtn" type="button">🖼 添加图片</button>
               <div class="image-preview hidden" id="askImagePreview"></div>
             </div>
+            <label class="ask-web-setting"><input type="checkbox" id="askWebToggle"><span>🌐 本次提问联网搜索（会把本次问题发给搜索服务）</span></label>
+            <div class="ask-web-status" id="askWebStatus">正在检查联网搜索配置…</div>
             <button class="primary-btn" id="askSendBtn">向 Jarvis 提问</button>
             <div class="status-line" id="askStatus"></div>
           </div>
         </div>
       </div>
+      <button class="ask-jump-compose" id="askJumpCompose" type="button">✎ 提问 / 回到底部</button>
     </section>
 
     <section class="page" id="page-settings">

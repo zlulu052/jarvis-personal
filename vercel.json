@@ -20,6 +20,9 @@
     },
     "api/ask.js": {
       "maxDuration": 60
+    },
+    "api/web-search.js": {
+      "maxDuration": 30
     }
   },
   "headers": [
