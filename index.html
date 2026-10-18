@@ -358,10 +358,13 @@
   <div class="modal-panel large-modal life-modal">
     <button class="modal-close" data-close="sleepLogModal">×</button>
     <div class="eyebrow">SLEEP JOURNAL</div><h2>☾ 睡眠记录</h2>
-    <p class="muted-copy">以起床当天作为日期。跨午夜自动计算；不知道的数据可以不填写。</p>
+    <p class="muted-copy">入睡和起床各自填写日期与时间，自动计算跨天睡眠。示例：10月18日 21:00 入睡 → 10月19日 07:00 起床，共10小时。夜醒、午睡等不知道可留空。</p>
     <div class="life-form-grid">
-      <label>起床日期<input id="sleepDate" type="date" required></label>
+      <div class="life-sleep-time-title span-2">🌙 入睡</div>
+      <label>入睡日期<input id="sleepBedDate" type="date" required></label>
       <label>大致入睡时间<input id="sleepBedtime" type="time" required></label>
+      <div class="life-sleep-time-title span-2">☀️ 起床</div>
+      <label>起床日期<input id="sleepWakeDate" type="date" required></label>
       <label>大致起床时间<input id="sleepWakeTime" type="time" required></label>
       <label>夜间醒来次数<select id="sleepWakeCount"><option value="">未记录</option><option value="0">没有</option><option value="1">1次</option><option value="2">2次</option><option value="3">3次</option><option value="4">4次以上</option></select></label>
       <label>夜间醒来累计分钟（可选）<input id="sleepWakeMinutes" type="number" min="0" max="720" step="5" inputmode="numeric" placeholder="不确定就留空"></label>
