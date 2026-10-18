@@ -10,7 +10,7 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/icon-180.png">
 <link rel="stylesheet" href="/app.css">
-<title>Jarvis 5.0.2 私人版</title>
+<title>Jarvis 5.1 私人版</title>
 </head>
 <body>
 <div class="app-shell">
@@ -18,7 +18,7 @@
     <div class="brand-wrap">
       <div class="brand-orb" aria-hidden="true"></div>
       <div>
-        <div class="brand">JARVIS <span class="version">5.0.2</span></div>
+        <div class="brand">JARVIS <span class="version">5.1</span></div>
         <div class="subtitle">PERSONAL INTELLIGENCE SYSTEM</div>
       </div>
     </div>
@@ -167,6 +167,7 @@
           <option value="7">7天</option>
           <option value="30" selected>30天</option>
           <option value="90">90天</option>
+          <option value="365">365天</option>
           <option value="all">全部</option>
         </select>
       </div>
@@ -203,11 +204,23 @@
           <div class="card-head"><div><div class="eyebrow">主题</div><h2>标签频率</h2></div></div>
           <div class="tag-bars" id="insightTagBars"></div>
         </div>
-        <div class="card">
-          <div class="card-head insight-ai-head"><div><div class="eyebrow">Jarvis</div><h2>深度趋势解读</h2></div><button class="secondary-btn small-btn" id="aiInsightBtn">AI 深度分析</button></div>
-          <div class="focus-tag-row"><label>重点分析<select id="insightFocusTag" class="mini-select"><option value="auto">自动选择高频主题</option></select></label></div>
-          <div id="aiInsightContent" class="muted-copy">Jarvis 会结合数值趋势、高频标签、共现事件和相关记录，解释“发生了什么、可能为什么、你可以怎么做”。</div>
-          <div class="status-line" id="aiInsightStatus"></div>
+        <div class="card insight-deep-card">
+          <div class="card-head insight-ai-head"><div><div class="eyebrow">JARVIS · PERSONAL INSIGHT</div><h2>综合认知分析</h2></div></div>
+          <p class="muted-copy">先扫描范围内的全部可用记录，再检索跨领域关联、重要事件和补充回答。AI 的判断附上证据，不用高频标签代替全貌。</p>
+          <div class="insight-mode-options" role="group" aria-label="分析模式">
+            <label class="insight-mode-chip"><input type="radio" name="insightMode" value="comprehensive" checked><span>全方位综合</span></label>
+            <label class="insight-mode-chip"><input type="radio" name="insightMode" value="frequent"><span>高频主题</span></label>
+            <label class="insight-mode-chip"><input type="radio" name="insightMode" value="specific"><span>指定主题</span></label>
+          </div>
+          <div class="focus-tag-row hidden" id="insightFocusRow"><label>指定标签<select id="insightFocusTag" class="mini-select"><option value="auto">请选择主题</option></select></label></div>
+          <label class="insight-privacy-switch"><input id="insightIncludeSensitive" type="checkbox">本次允许纳入「感情 / 关系专题」等较私密记录（默认关闭）</label>
+          <p class="muted-copy insight-privacy-copy">所有统计先在本机计算，仅向你配置的 CloseAI 发送分析所需的筛选摘要和相关原文；关闭时不发送被排除的记录。</p>
+          <div id="insightScanPreview" class="insight-scan-preview">选择范围后，这里会展示参与扫描的记录数与数据覆盖。</div>
+          <button class="primary-btn insight-run-btn" id="aiInsightBtn">开始全方位综合分析</button>
+          <div class="status-line" id="aiInsightStatus" role="status"></div>
+          <div id="aiInsightContent" class="insight-report-area"><div class="muted-copy">运行后将生成整体判断、跨领域关联、可点击证据、其他可能解释及行动建议。</div></div>
+          <details class="insight-history" id="insightHistoryDetails"><summary>查看历史分析报告</summary><div id="insightHistoryList"></div></details>
+          <div class="insight-experiments"><h3>已采纳的行动实验</h3><div id="insightExperimentList" class="muted-copy">暂无行动实验。分析后可以选取建议开始追踪。</div></div>
         </div>
       </div>
     </section>
