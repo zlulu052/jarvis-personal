@@ -13,14 +13,14 @@ export default async function handler(req,res){
   const scope=b.scope||{},evidence=array(b.evidence,65),historical=array(b.historicalContext,7),validIds=new Set([...evidence,...historical].map(x=>x.id).filter(id=>typeof id==='string'));
   const stats=b.stats||{};
   if(!stats.records)return res.status(400).json({error:'没有有效记录，暂时无法分析'});
-  const input={analysis_mode:scope.mode||'comprehensive',focus_tag:scope.focusTag||null,range:scope.range,statistics:stats,profile:b.profile||{},verified_previous_summaries:array(b.summaries,3),selected_evidence:evidence.map(e=>({id:e.id,createdAt:e.createdAt,eventDate:e.eventDate,title:e.title,text:e.text,followups:e.followups,tags:e.tags,metrics:e.metrics,metricMeta:e.metricMeta,importance:e.importance,vision:e.vision})),historical_background:historical,active_experiments:array(b.activeExperiments,8)};
+  const input={analysis_mode:scope.mode||'comprehensive',focus_tag:scope.focusTag||null,range:scope.range,statistics:stats,profile:b.profile||{},verified_previous_summaries:array(b.summaries,3),selected_evidence:evidence.map(e=>({id:e.id,createdAt:e.createdAt,eventDate:e.eventDate,title:e.title,text:e.text,followups:e.followups,tags:e.tags,metrics:e.metrics,metricMeta:e.metricMeta,structured:e.structured||null,importance:e.importance,vision:e.vision})),historical_background:historical,active_experiments:array(b.activeExperiments,8)};
   const instructions=`你是 Jarvis 私人版的“综合洞察分析器”，帮助用户在真实的长期记录中发现可验证的模式。中文回答，具体、有条理，避免空泛说教。
 关键模式：comprehensive=全方位综合分析，必须覆盖所有有数据的领域（工作/学习/睡眠/情绪/精力/关系/饮食/运动/计划等），包括低频但高重要性的事件，不能只围绕高频标签；frequent=聚焦最高频主题，仍考虑其他领域的前因后果；specific=聚焦指定主题但跨领域检索相关证据。
 
 严格规则：
 1. 只引用输入里的 selected_evidence/historical_background 的真实 id，禁止编造新记录、日期、数值、事件或他人意图。引用 id 填到 findings[].evidenceIds。不要用空泛“多次出现”冒充证据。统计数据的数值要与 statistics 一致。
 2. statistics 是本地扫描范围内所有可用记录计算的摘要；selected_evidence 是代表性抽样，不是全部原文；二者区分清楚。不能因未抽到原文而宣称某类事件不存在。
-3. 统计共现、时间顺序并不证明因果。观察（可核实）与假设（待验证）分开写；样本量小或数值来自 AI 估算时必须说明。
+3. 对于睡眠，按夜间睡眠小时、夜醒与午睡区分；对于饮食，所有热量和营养是用户已记录餐食的估算值，不代表全天摄入量，也不能用它直接推断营养不足。照片识图不能准确称重，需要标明估算不确定性。统计共现、时间顺序并不证明因果。观察（可核实）与假设（待验证）分开写；样本量小或数值来自 AI 估算时必须说明。
 4. 一项真正重要的跨领域关联可以关注“情感事件→睡眠→精力→学习”的假设，但必须检查其他可能原因；不要推断第三方真实心理、不贴依恋类型/心理疾病标签。
 5. 心理学/行为科学理论只在有针对性时使用，说明适用边界。对健康、投资等保持谨慎，不能取代专业诊疗。
 6. 输出应比普通趋势概述具体：整体状态、2～6个优先级明确的发现、支持的指标/记录、其他解释、可操作的1～3项实验和7天或约定周期的验证办法。如果事实不足先提出2～4个澄清问题，不得硬编。

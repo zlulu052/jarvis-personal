@@ -10,7 +10,7 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/icon-180.png">
 <link rel="stylesheet" href="/app.css">
-<title>Jarvis 5.1 私人版</title>
+<title>Jarvis 5.2 私人版</title>
 </head>
 <body>
 <div class="app-shell">
@@ -18,7 +18,7 @@
     <div class="brand-wrap">
       <div class="brand-orb" aria-hidden="true"></div>
       <div>
-        <div class="brand">JARVIS <span class="version">5.1</span></div>
+        <div class="brand">JARVIS <span class="version">5.2</span></div>
         <div class="subtitle">PERSONAL INTELLIGENCE SYSTEM</div>
       </div>
     </div>
@@ -90,6 +90,10 @@
         </div>
       </div>
 
+      <div class="life-home-shortcuts">
+        <button id="openSleepFromHome" class="life-home-btn" type="button"><span class="life-home-icon">☾</span><span><b>睡眠速记</b><small>睡了多久？醒后感觉如何？</small></span><span>→</span></button>
+        <button id="openMealFromHome" class="life-home-btn" type="button"><span class="life-home-icon">◉</span><span><b>饮食速记</b><small>拍照识别热量与营养</small></span><span>→</span></button>
+      </div>
       <div class="stats-grid" id="statsGrid">
         <div class="stat-card"><div class="stat-label">本月记录</div><div class="stat-value" id="statMonth">0</div><div class="stat-sub">条</div></div>
         <div class="stat-card"><div class="stat-label">连续记录</div><div class="stat-value" id="statStreak">0</div><div class="stat-sub">天</div></div>
@@ -106,6 +110,9 @@
               <option value="energy">精力</option>
               <option value="stress">压力</option>
               <option value="sleep_hours">睡眠</option>
+              <option value="sleep_recovery">醒后恢复感</option>
+              <option value="calories_kcal">餐食热量（已记录）</option>
+              <option value="protein_g">蛋白质（已记录）</option>
               <option value="weight_kg">体重</option>
             </select>
           </div>
@@ -128,6 +135,15 @@
       <div class="page-head">
         <div><div class="eyebrow">PERSONAL LOG</div><h1>记录</h1><p>按时间、标签和关键词整理你的人生流水账。</p></div>
         <button class="primary-btn small-btn" id="newRecordBtn">＋ 新记录</button>
+      </div>
+      <div class="lifestyle-entry-row">
+        <button class="lifestyle-launch" id="openSleepFromRecords" type="button"><span>☾</span><b>记录睡眠</b><small>入睡 · 起床 · 午睡 · 醒后状态</small></button>
+        <button class="lifestyle-launch" id="openMealFromRecords" type="button"><span>◉</span><b>记录饮食</b><small>拍照识别 · 热量 · 蛋白质</small></button>
+      </div>
+      <div class="card lifestyle-overview">
+        <div class="card-head"><div><div class="eyebrow">DAILY LIFE</div><h2>每日生活数据</h2></div><span class="muted-copy">数据来自你确认保存的固定记录</span></div>
+        <div class="life-overview-grid" id="lifestyleOverview"></div>
+        <div class="life-recent-grid"><div><h3>最近睡眠</h3><div id="recentSleepLogs"></div></div><div><h3>最近饮食</h3><div id="recentMealLogs"></div></div></div>
       </div>
       <div class="card filter-card">
         <input id="recordSearch" class="search-input" placeholder="搜索记录、分析内容……">
@@ -181,6 +197,11 @@
         <div class="stat-card"><div class="stat-label">平均睡眠</div><div class="stat-value" id="insightSleep">—</div></div>
         <div class="stat-card"><div class="stat-label">高频主题</div><div class="stat-value small-value" id="insightTopTag">—</div></div>
       </div>
+      <div class="card life-insight-stats">
+        <div class="card-head"><div><div class="eyebrow">LIFESTYLE DATA</div><h2>睡眠与饮食结构化数据</h2></div></div>
+        <div id="insightLifestyleStats" class="life-overview-grid"></div>
+        <p class="muted-copy">热量和营养是已记录餐食的合计估算，不代表全天实际摄入；照片识别可能漏掉油脂、调味和份量。</p>
+      </div>
 
       <div class="card chart-card">
         <div class="card-head">
@@ -190,6 +211,9 @@
             <option value="energy">精力</option>
             <option value="stress">压力</option>
             <option value="sleep_hours">睡眠</option>
+              <option value="sleep_recovery">醒后恢复感</option>
+              <option value="calories_kcal">餐食热量（已记录）</option>
+              <option value="protein_g">蛋白质（已记录）</option>
             <option value="weight_kg">体重</option>
             <option value="workout_minutes">运动分钟</option>
             <option value="reading_minutes">阅读分钟</option>
@@ -329,6 +353,56 @@
   <button class="mobile-nav-btn" data-page="ask"><span>?</span><small>问答</small></button>
   <button class="mobile-nav-btn" data-page="settings"><span>⚙</span><small>设置</small></button>
 </nav>
+
+<div class="modal-backdrop hidden" id="sleepLogModal">
+  <div class="modal-panel large-modal life-modal">
+    <button class="modal-close" data-close="sleepLogModal">×</button>
+    <div class="eyebrow">SLEEP JOURNAL</div><h2>☾ 睡眠记录</h2>
+    <p class="muted-copy">以起床当天作为日期。跨午夜自动计算；不知道的数据可以不填写。</p>
+    <div class="life-form-grid">
+      <label>起床日期<input id="sleepDate" type="date" required></label>
+      <label>大致入睡时间<input id="sleepBedtime" type="time" required></label>
+      <label>大致起床时间<input id="sleepWakeTime" type="time" required></label>
+      <label>夜间醒来次数<select id="sleepWakeCount"><option value="">未记录</option><option value="0">没有</option><option value="1">1次</option><option value="2">2次</option><option value="3">3次</option><option value="4">4次以上</option></select></label>
+      <label>夜间醒来累计分钟（可选）<input id="sleepWakeMinutes" type="number" min="0" max="720" step="5" inputmode="numeric" placeholder="不确定就留空"></label>
+      <label>午睡（分钟）<input id="sleepNap" type="number" min="0" max="600" step="5" inputmode="numeric" placeholder="没午睡填0"></label>
+      <label class="span-2">醒后恢复感 <span class="life-range-value" id="sleepRecoveryValue">未评分</span><input id="sleepRecovery" type="range" min="0" max="10" step="1" value="0"><small>滑到 1–10 分；0 表示不记录评分，并不是恢复感为 0</small></label>
+      <label class="span-2">睡眠备注（可选）<textarea id="sleepNotes" rows="2" placeholder="例如：入睡前喝了咖啡，做梦较多，起床后仍有点困"></textarea></label>
+    </div>
+    <div class="life-preview" id="sleepDurationPreview">填写入睡与起床时间后，自动计算夜间睡眠时长。</div>
+    <div class="modal-actions"><button id="saveSleepLog" class="primary-btn">保存睡眠记录</button><button type="button" class="secondary-btn" data-close="sleepLogModal">取消</button></div>
+    <div class="status-line" id="sleepLogStatus"></div>
+  </div>
+</div>
+
+<div class="modal-backdrop hidden" id="mealLogModal">
+  <div class="modal-panel large-modal life-modal">
+    <button class="modal-close" data-close="mealLogModal">×</button>
+    <div class="eyebrow">FOOD JOURNAL</div><h2>◉ 饮食记录</h2>
+    <p class="muted-copy">拍照估算后请检查食材、重量和烹饪方式。没有照片也可以手动填写，所有营养数值都可以修改。</p>
+    <div class="life-form-grid">
+      <label>用餐日期<input id="mealDate" type="date" required></label>
+      <label>餐次<select id="mealType"><option value="breakfast">早餐</option><option value="lunch">午餐</option><option value="dinner">晚餐</option><option value="snack">加餐</option></select></label>
+      <label class="span-2">吃了什么？<textarea id="mealDescription" rows="2" placeholder="例如：米饭一碗、煎鸡胸肉、炒青菜；可以写估计份量"></textarea></label>
+    </div>
+    <div class="life-photo-row">
+      <input type="file" class="hidden" id="mealImageInput" accept="image/*">
+      <button class="secondary-btn" id="mealImageBtn" type="button">＋ 添加餐食照片</button>
+      <button class="secondary-btn" id="mealRecognizeBtn" type="button">🔎 AI 估算营养</button>
+    </div>
+    <div id="mealPhotoPreview" class="life-photo-preview hidden"></div>
+    <div id="mealFoodItems" class="life-food-items hidden"></div>
+    <div class="life-nutrition-grid">
+      <label>热量 kcal<input type="number" min="0" step="1" id="mealCalories" inputmode="decimal" placeholder="未记录"></label>
+      <label>蛋白质 g<input type="number" min="0" step="0.1" id="mealProtein" inputmode="decimal" placeholder="未记录"></label>
+      <label>碳水化合物 g<input type="number" min="0" step="0.1" id="mealCarbs" inputmode="decimal" placeholder="未记录"></label>
+      <label>脂肪 g<input type="number" min="0" step="0.1" id="mealFat" inputmode="decimal" placeholder="未记录"></label>
+    </div>
+    <div class="life-estimate-note">⚠ 照片估算并非营养检测，油、酱料和实际份量可能使数值有较大误差。请确认后再保存。不能识别时保留空值，不虚构营养值。</div>
+    <div class="modal-actions"><button id="saveMealLog" class="primary-btn">确认并保存这一餐</button><button class="secondary-btn" type="button" data-close="mealLogModal">取消</button></div>
+    <div id="mealLogStatus" class="status-line"></div>
+  </div>
+</div>
 
 <div class="modal-backdrop hidden" id="analysisModal">
   <div class="modal-panel large-modal">
