@@ -1,4 +1,4 @@
-// Jarvis v5.2.1 - follow-up history, topical chats and opt-in web search reading/editing + multimodal records, deeper insights, Ask Jarvis
+// Jarvis v5.2.3 - follow-up history, topical chats and opt-in web search reading/editing + multimodal records, deeper insights, Ask Jarvis
 const DB_NAME='jarvis_v4_db';
 const DB_VERSION=4;
 const STORES=['entries','plans','summaries','tags','feedback','meta','snapshots','spaces','conversations','topics','insightReports','actionExperiments'];
@@ -289,7 +289,7 @@ function renderRecordDetail(e){
  const date=new Date(e.createdAt);
  const replies=(e.followups||[]);
  const history=replies.length?`<section class="record-followups"><div class="record-followup-heading">补充回答 · 共 ${replies.length} 次</div>${replies.map((f,i)=>`<article class="record-followup-item"><div class="record-followup-time">第 ${i+1} 次补充 ${f.time?`· ${escapeHTML(new Date(f.time).toLocaleString())}`:''}</div>${(f.questions||[]).length?`<div class="record-followup-questions">${(f.questions||[]).map(q=>`<p><strong>Jarvis 追问：</strong>${escapeHTML(q.question||q)}</p>`).join('')}</div>`:''}<div class="record-followup-answer">${escapeHTML(f.text||f.answer||'')}</div></article>`).join('')}</section>`:'<div class="muted-copy record-followup-empty">还没有补充回答。</div>';
- return `<div class="eyebrow">原始记录 · 完整时间线</div><h2 class="analysis-title">${escapeHTML(e.title||'记录详情')}</h2><div class="record-detail-meta">${date.toLocaleString()}${e.updatedAt&&e.updatedAt!==e.createdAt?` · 最近编辑 ${new Date(e.updatedAt).toLocaleString()}`:''}</div><div class="record-detail-original" id="recordDetailOriginal">${escapeHTML(e.text)}</div>${e.structured?renderStructuredDetail(e):''}${history}${e.attachments?.length?`<div class="record-detail-images">${e.attachments.filter(a=>a.dataUrl).map(a=>`<img class="record-detail-image" src="${a.dataUrl}" alt="记录图片">`).join('')}</div>`:''}<div class="record-tags">${renderTagChips(e.tagIds)}</div>${metricPills(e.metrics,e.metricMeta)?`<div class="metric-pills">${metricPills(e.metrics,e.metricMeta)}</div>`:''}${e.analysisStale?`<div class="record-edit-warning">原文在 AI 分析之后被修改过，现有分析可能基于旧内容。</div>`:''}<div class="record-actions">${e.structured?`<button class="primary-btn small-btn edit-life-record" data-id="${e.id}">编辑${e.structured.kind==='sleep'?'睡眠':'餐食'}数据</button>`:`<button class="primary-btn small-btn edit-record-text" data-id="${e.id}">编辑原文</button>`}${e.status==='analyzed'?`<button class="secondary-btn small-btn view-analysis" data-id="${e.id}">查看 AI 分析</button>`:''}<button class="secondary-btn small-btn copy-record-text" data-id="${e.id}">复制全部内容</button>${e.status==='pending'?`<button class="secondary-btn small-btn continue-pending" data-id="${e.id}">继续补充</button>`:''}</div>`;
+ return `<div class="eyebrow">原始记录 · 完整时间线</div><h2 class="analysis-title">${escapeHTML(e.title||'记录详情')}</h2><div class="record-detail-meta">${date.toLocaleString()}${e.updatedAt&&e.updatedAt!==e.createdAt?` · 最近编辑 ${new Date(e.updatedAt).toLocaleString()}`:''}</div><div class="record-detail-original" id="recordDetailOriginal">${escapeHTML(e.text)}</div>${e.structured?renderStructuredDetail(e):''}${history}${e.attachments?.length?`<div class="record-detail-images">${e.attachments.filter(a=>a.dataUrl).map(a=>`<img class="record-detail-image" src="${a.dataUrl}" alt="记录图片">`).join('')}</div>`:''}<div class="record-tags">${renderTagChips(e.tagIds)}</div>${metricPills(e.metrics,e.metricMeta)?`<div class="metric-pills">${metricPills(e.metrics,e.metricMeta)}</div>`:''}${e.analysisStale?`<div class="record-edit-warning">原文在 AI 分析之后被修改过，现有分析可能基于旧内容。</div>`:''}<div class="record-actions">${e.structured?`<button class="primary-btn small-btn edit-life-record" data-id="${e.id}">编辑${e.structured.kind==='sleep'?'睡眠':e.structured.kind==='nap'?'午睡':'餐食'}数据</button>`:`<button class="primary-btn small-btn edit-record-text" data-id="${e.id}">编辑原文</button>`}${e.status==='analyzed'?`<button class="secondary-btn small-btn view-analysis" data-id="${e.id}">查看 AI 分析</button>`:''}<button class="secondary-btn small-btn copy-record-text" data-id="${e.id}">复制全部内容</button>${e.status==='pending'?`<button class="secondary-btn small-btn continue-pending" data-id="${e.id}">继续补充</button>`:''}</div>`;
 }
 function openRecordDetail(id){const e=state.entries.find(x=>x.id===id);if(!e)return;$('#recordDetailModalBody').innerHTML=renderRecordDetail(e);bindRecordDetailActions();openModal('recordDetailModal')}
 function bindRecordDetailActions(){const root=$('#recordDetailModalBody');if(!root)return;root.querySelectorAll('.view-analysis').forEach(b=>b.onclick=()=>{closeModal('recordDetailModal');openAnalysis(b.dataset.id)});root.querySelectorAll('.copy-record-text').forEach(b=>b.onclick=async()=>{const e=state.entries.find(x=>x.id===b.dataset.id);if(!e)return;try{await navigator.clipboard.writeText(completeRecordText(e));b.textContent='已复制 ✓';setTimeout(()=>b.textContent='复制全部内容',1200)}catch{alert('复制失败，请长按原文手动复制。')}});root.querySelectorAll('.edit-record-text').forEach(b=>b.onclick=()=>startRecordTextEdit(b.dataset.id));root.querySelectorAll('.edit-life-record').forEach(b=>b.onclick=()=>{closeModal('recordDetailModal');openLifeRecordById(b.dataset.id)});root.querySelectorAll('.continue-pending').forEach(b=>b.onclick=()=>{closeModal('recordDetailModal');openPendingModal()})}
@@ -530,7 +530,7 @@ const lifeEntries=kind=>state.entries.filter(e=>e.structured?.kind===kind);
 const validLifeNumber=(v,min=0,max=99999)=>v!==''&&v!==null&&v!==undefined&&Number.isFinite(Number(v))&&Number(v)>=min&&Number(v)<=max;
 const lifeNum=(id,min=0,max=99999)=>{const v=$(id)?.value;return validLifeNumber(v,min,max)?Number(v):null};
 const roundLife=(n,dp=1)=>Number(n.toFixed(dp));
-function structuredForAI(o){if(o.kind==='sleep')return{kind:'sleep',day:o.day,...sleepDates(o),bedtime:o.bedtime,wake:o.wake,nightAwakenings:o.nightAwakenings,nightAwakeMinutes:o.nightAwakeMinutes,napMinutes:o.napMinutes,recovery:o.recovery,nightHours:o.nightHours,notes:o.notes};if(o.kind==='meal')return{kind:'meal',day:o.day,mealType:o.mealType,description:o.description,foods:o.foods,estimateSource:o.estimateSource,warning:'照片估算仅供参考，不能据此断言实际营养摄入'};return null}
+function structuredForAI(o){if(o.kind==='nap')return{kind:'nap',day:o.day,napMinutes:o.napMinutes,note:'午睡独立速记；如有对应夜间睡眠记录，数据按起床日期关联'};if(o.kind==='sleep')return{kind:'sleep',day:o.day,...sleepDates(o),bedtime:o.bedtime,wake:o.wake,nightAwakenings:o.nightAwakenings,nightAwakeMinutes:o.nightAwakeMinutes,napMinutes:o.napMinutes,recovery:o.recovery,nightHours:o.nightHours,notes:o.notes};if(o.kind==='meal')return{kind:'meal',day:o.day,mealType:o.mealType,description:o.description,foods:o.foods,estimateSource:o.estimateSource,warning:'照片估算仅供参考，不能据此断言实际营养摄入'};return null}
 function clockMinutes(v){if(!/^\d{2}:\d{2}$/.test(v||''))return null;const [h,m]=v.split(':').map(Number);return h<24&&m<60?h*60+m:null}
 // Explicit local calendar dates avoid incorrect day inference for nights crossing midnight.
 // Legacy v5.2 records only stored the wake date and HH:mm clocks; infer the bedtime
@@ -548,36 +548,165 @@ function sleepDuration(bedDate,bed,wakeDate,wake,awakeMinutes=0){
 }
 function safeDate(day){if(!/^\d{4}-\d{2}-\d{2}$/.test(day||''))return false;const d=new Date(day+'T12:00:00');return !Number.isNaN(d.getTime())&&dateKey(d)===day}
 function entryDateTime(day){return new Date(day+'T12:00:00').toISOString()}
+// Fast sleep entry: one wake date + two clocks, date inferred by their order.
+// Expanded override handles atypical schedules without requiring four fields every day.
+function guessedBedDate(day,bed,wake){
+ if(!safeDate(day))return '';
+ const b=clockMinutes(bed),w=clockMinutes(wake);
+ return b!==null&&w!==null&&b>w?addLifeDays(day,-1):day;
+}
+function actualSleepBedDate(){
+ const day=$('#sleepWakeDate').value;
+ return $('#sleepManualDate').checked?$('#sleepBedDate').value:guessedBedDate(day,$('#sleepBedtime').value,$('#sleepWakeTime').value);
+}
+function syncSleepDateOverride(){
+ const enabled=$('#sleepManualDate').checked;
+ $('#sleepManualDateRow').classList.toggle('hidden',!enabled);
+ if(!enabled)$('#sleepBedDate').value=guessedBedDate($('#sleepWakeDate').value,$('#sleepBedtime').value,$('#sleepWakeTime').value);
+ updateSleepPreview();
+}
+function setSleepNapSelection(value,preserveCustom=false){
+ const special=value==='custom';
+ $('#sleepNapCustomRow').classList.toggle('hidden',!special);
+ if(!special)$('#sleepNap').value=value;
+ else if(!preserveCustom)$('#sleepNap').value='';
+ $$('#sleepLogModal .life-nap-pill').forEach(el=>{
+  const active=el.dataset.nap===value;
+  el.classList.toggle('selected',active);
+  el.setAttribute('aria-pressed',String(active));
+ });
+ updateSleepPreview();
+}
+// v5.2.3: nap quick logging is associated by wake date, not by retyping sleep clocks.
+// If there is no night record yet, keep one nap-only entry and merge on night save.
+const sleepEntryForDay=day=>state.entries.find(e=>e.structured?.kind==='sleep'&&(e.structured.wakeDate||e.structured.day)===day);
+const napOnlyEntryForDay=day=>state.entries.find(e=>e.structured?.kind==='nap'&&e.structured.day===day);
+function napValueForDay(day){const solo=napOnlyEntryForDay(day);return solo?solo.structured.napMinutes:(sleepEntryForDay(day)?.structured.napMinutes??null)}
+function napSummary(value){return value===null||value===undefined?'未记录':Number(value)===0?'没有午睡':`${value} 分钟`}
+function formatSleepText(s){const dates=sleepDates(s);return `【睡眠】${dates.bedDate} ${s.bedtime} → ${dates.wakeDate} ${s.wake}，夜间约 ${s.nightHours} 小时${s.napMinutes!==null&&s.napMinutes!==undefined?`，起床当天午睡 ${s.napMinutes} 分钟`:''}${s.recovery?`，醒后恢复感 ${s.recovery}/10`:''}${s.notes?`。${s.notes}`:''}`}
+let quickNapChoice=null;
+function setQuickNapChoice(value){
+ quickNapChoice=value;
+ $$('.life-nap-quick-choices [data-quick-nap]').forEach(el=>{const active=el.dataset.quickNap===value;el.classList.toggle('selected',active);el.setAttribute('aria-pressed',String(active))});
+ $('#napQuickCustomRow').classList.toggle('hidden',value!=='custom');
+ updateQuickNapPreview();
+}
+function updateQuickNapPreview(){
+ const day=$('#napQuickDate').value;
+ const dayGood=safeDate(day);
+ $('#napQuickDayText').textContent=dayGood?(day===localDay()?`今天 · ${day}`:day):'请先选择日期';
+ const existsNight=dayGood&&Boolean(sleepEntryForDay(day));
+ $('#napQuickLinkHint').textContent=existsNight?'已找到夜间记录，保存后直接更新同一条记录':'尚无夜间记录，将先单独保存，之后自动合并';
+ let t='请选择午睡时长。';
+ if(quickNapChoice==='')t='将清除此日期已有的午睡时长，不会删除夜间睡眠记录。';
+ else if(quickNapChoice!==null){const n=quickNapChoice==='custom'?$('#napQuickCustomMinutes').value:quickNapChoice;t=n!==''?`午睡：${napSummary(Number(n))}。${existsNight?'将更新当天已有睡眠记录。':'将创建/更新临时午睡记录。'}`:'请填写分钟数。'}
+ $('#napQuickPreview').textContent=t;
+}
+function openNapQuick(day=localDay()){
+ const d=safeDate(day)?day:localDay();
+ $('#napQuickDate').value=d;
+ $('#napQuickDateDetails').open=false;
+ $('#napQuickCustomMinutes').value='';
+ const current=napValueForDay(d);
+ const preset=current===null||current===undefined?null:[0,20,30,60].includes(Number(current))?String(current):'custom';
+ if(preset==='custom')$('#napQuickCustomMinutes').value=current;
+ setQuickNapChoice(preset);
+ setStatus('#napQuickStatus','');
+ openModal('napQuickModal');
+}
+async function deleteNapOnlyRecord(entry){
+ if(!entry)return;
+ await dbDelete('entries',entry.id);
+ state.entries=state.entries.filter(e=>e.id!==entry.id);
+}
+async function saveQuickNap(){
+ const button=$('#saveNapQuick'),day=$('#napQuickDate').value;
+ if(!safeDate(day)||day>localDay()){setStatus('#napQuickStatus','请选择今天或以前的有效日期。','error');return}
+ if(quickNapChoice===null){setStatus('#napQuickStatus','先选择「没有」「20分钟」「30分钟」「1小时」或「其他」。','error');return}
+ const nap=quickNapChoice==='custom'?lifeNum('#napQuickCustomMinutes',0,600):quickNapChoice===''?null:Number(quickNapChoice);
+ if(quickNapChoice==='custom'&&nap===null){setStatus('#napQuickStatus','请填写 0～600 分钟的有效时长。','error');return}
+ button.disabled=true;
+ try{
+  const sleep=sleepEntryForDay(day),napOnly=napOnlyEntryForDay(day);
+  if(sleep){
+   sleep.structured={...sleep.structured,napMinutes:nap};
+   sleep.text=formatSleepText(sleep.structured);
+   if(sleep.analysis||sleep.analysisRaw)sleep.analysisStale=true;
+   await saveEntry(sleep);
+   await deleteNapOnlyRecord(napOnly);
+  }else if(nap===null){await deleteNapOnlyRecord(napOnly)}
+  else{
+   const e=napOnly||buildEntry('',{},'note',['sleep']);
+   e.structured={kind:'nap',day,napMinutes:nap};e.eventDate=day;
+   if(!napOnly)e.createdAt=entryDateTime(day);
+   e.title=`午睡 · ${day}`;e.text=`【午睡】${day} · ${napSummary(nap)}`;e.status='note';
+   e.tagIds=[...new Set([...(e.tagIds||[]),'sleep'])];
+   await saveEntry(e);
+  }
+  closeModal('napQuickModal');renderAll();
+  setStatus('#composerStatus',nap===null?`已清除 ${day} 午睡信息。`:`已保存 ${day} 的午睡：${napSummary(nap)}。${sleep?'已关联原有夜间睡眠记录。':'以后补填夜间睡眠会自动合并。'}`,'success');
+ }catch(e){setStatus('#napQuickStatus',`保存失败：${e.message}`,'error')}
+ finally{button.disabled=false}
+}
+function syncNapForNightDate(){
+ const day=$('#sleepWakeDate').value;
+ const current=state.entries.find(e=>e.id===editingSleepId);
+ const sameDay=current&&(current.structured?.wakeDate||current.structured?.day)===day;
+ const nap=sameDay?current.structured?.napMinutes:napValueForDay(day);
+ const preset=nap===null||nap===undefined?'':[0,20,30,60].includes(Number(nap))?String(nap):'custom';
+ $('#sleepNap').value=nap??'';
+ setSleepNapSelection(preset,true);
+}
 function openSleepLog(id=null){
  const rec=id?state.entries.find(e=>e.id===id&&e.structured?.kind==='sleep'):null;
  editingSleepId=rec?.id||null;
  const d=rec?.structured||{};
- const dates=rec?sleepDates(d):{bedDate:addLifeDays(localDay(),-1),wakeDate:localDay()};
- $('#sleepBedDate').value=dates.bedDate;
+ const dates=rec?sleepDates(d):{wakeDate:localDay(),bedDate:addLifeDays(localDay(),-1)};
  $('#sleepWakeDate').value=dates.wakeDate;
  $('#sleepBedtime').value=d.bedtime||'';
  $('#sleepWakeTime').value=d.wake||'';
+ const auto=guessedBedDate(dates.wakeDate,d.bedtime,d.wake);
+ const manual=Boolean(rec&&dates.bedDate!==auto);
+ $('#sleepManualDate').checked=manual;
+ $('#sleepBedDate').value=dates.bedDate;
+ $('#sleepManualDateRow').classList.toggle('hidden',!manual);
  $('#sleepWakeCount').value=d.nightAwakenings===null||d.nightAwakenings===undefined?'':String(d.nightAwakenings);
  $('#sleepWakeMinutes').value=d.nightAwakeMinutes??'';
- $('#sleepNap').value=d.napMinutes??'';
+ const nap=d.napMinutes??napOnlyEntryForDay(dates.wakeDate)?.structured.napMinutes??null;
+ const preset=nap===null||nap===undefined?'':[0,20,30,60].includes(Number(nap))?String(nap):'custom';
+ $('#sleepNap').value=nap??'';
+ setSleepNapSelection(preset,true);
  $('#sleepRecovery').value=d.recovery??0;
  $('#sleepNotes').value=d.notes||'';
+ $('#sleepAdvanced').open=Boolean(manual||d.nightAwakenings!==null&&d.nightAwakenings!==undefined||d.nightAwakeMinutes!==null&&d.nightAwakeMinutes!==undefined||d.recovery||d.notes);
  setStatus('#sleepLogStatus','');updateSleepPreview();openModal('sleepLogModal');
 }
 function updateSleepPreview(){
  const w=$('#sleepWakeMinutes').value;
- const bedDate=$('#sleepBedDate').value,wakeDate=$('#sleepWakeDate').value;
- const m=sleepDuration(bedDate,$('#sleepBedtime').value,wakeDate,$('#sleepWakeTime').value,w===''?0:Number(w));
- let text=m?`${bedDate} ${$('#sleepBedtime').value} → ${wakeDate} ${$('#sleepWakeTime').value} · 躺床时段：${m.elapsed} 小时 · ${w!==''?'扣除夜醒后估算睡眠：':'估算睡眠：'}${m.hours} 小时`:'请填写入睡日期与时间、起床日期与时间（起床应晚于入睡，时段为 1～24 小时）。';
+ const bedDate=actualSleepBedDate(),wakeDate=$('#sleepWakeDate').value;
+ if(!$('#sleepManualDate').checked)$('#sleepBedDate').value=bedDate;
+ $('#sleepNapDayLabel').textContent=safeDate(wakeDate)?`${wakeDate.slice(5).replace('-','月')}日的午睡`:'起床当天的午睡';
+ const bed=$('#sleepBedtime').value,wake=$('#sleepWakeTime').value;
+ const m=sleepDuration(bedDate,bed,wakeDate,wake,w===''?0:Number(w));
+ let text;
+ if(!bed||!wake){text='填入睡和起床时间后，自动推算日期并显示睡眠时长。'}
+ else if(!m){text='当前时段不合理，请检查时间；如跨日期推算不符合实际，可打开「更多选项」手动选日期（时段须为 1～24 小时）。'}
+ else{
+  const nap=$('#sleepNap').value;
+  text=`${bedDate.slice(5)} ${bed} → ${wakeDate.slice(5)} ${wake} · 夜间约 ${m.hours} 小时${w!==''?'（已扣除夜醒）':''}${nap!==''?` · 当天午睡 ${nap} 分钟`:''}`;
+ }
  $('#sleepDurationPreview').textContent=text;
  $('#sleepRecoveryValue').textContent=Number($('#sleepRecovery').value)>0?`${$('#sleepRecovery').value}/10`:'未评分';
 }
 async function saveSleepLog(){
- const bedDate=$('#sleepBedDate').value,day=$('#sleepWakeDate').value,bedtime=$('#sleepBedtime').value,wake=$('#sleepWakeTime').value;
- const awake=lifeNum('#sleepWakeMinutes',0,720),nap=lifeNum('#sleepNap',0,600),wakes=$('#sleepWakeCount').value,recovery=Number($('#sleepRecovery').value)||null;
+ const bedDate=actualSleepBedDate(),day=$('#sleepWakeDate').value,bedtime=$('#sleepBedtime').value,wake=$('#sleepWakeTime').value;
+ const awake=lifeNum('#sleepWakeMinutes',0,720),wakes=$('#sleepWakeCount').value,recovery=Number($('#sleepRecovery').value)||null;
+ const napOnly=napOnlyEntryForDay(day);
+ const nap=lifeNum('#sleepNap',0,600)??(napOnly?.structured.napMinutes??null);
  const duration=sleepDuration(bedDate,bedtime,day,wake,awake??0);
+ if(document.querySelector('#sleepLogModal .life-nap-pill.selected')?.dataset.nap==='custom'&&$('#sleepNap').value===''){setStatus('#sleepLogStatus','选择「其他」午睡时长后，请输入分钟数；如果不确定，可以选「未记录」。','error');return}
  if(!duration||($('#sleepWakeMinutes').value!==''&&awake===null)||($('#sleepNap').value!==''&&nap===null)){
-  setStatus('#sleepLogStatus','请检查入睡/起床日期时间及夜醒、午睡时长（须先入睡后起床，时长 1～24 小时）。','error');return;
+  setStatus('#sleepLogStatus','请检查起床日期、入睡/起床时间。特殊跨天情况可在「更多选项」中手动选入睡日期。','error');return;
  }
  if(new Date(`${day}T${wake}:00`).getTime()>Date.now()){
   setStatus('#sleepLogStatus','起床时间还没到，不能记录未来睡眠。','error');return;
@@ -586,14 +715,14 @@ async function saveSleepLog(){
  const existing=state.entries.find(e=>e.structured?.kind==='sleep'&&(e.structured.wakeDate||e.structured.day)===day&&e.id!==editingSleepId);
  if(existing&&editingSleepId){setStatus('#sleepLogStatus',`起床日期 ${day} 已有另一条睡眠记录，请关闭当前编辑后打开那条记录修改。`,'error');return}
  if(existing&&!confirm(`${day} 已有睡眠记录，是否覆盖当天这条记录？`))return;
- let e=state.entries.find(x=>x.id===(existing?.id||editingSleepId))||buildEntry('',{},'note',['sleep']);
+ let e=state.entries.find(x=>x.id===(existing?.id||editingSleepId))||napOnly||buildEntry('',{},'note',['sleep']);
  e.structured=s;e.eventDate=day;e.createdAt=entryDateTime(day);
- e.text=`【睡眠】${bedDate} ${bedtime} → ${day} ${wake}，夜间约 ${duration.hours} 小时${nap!==null?`，午睡 ${nap} 分钟`:''}${recovery?`，醒后恢复感 ${recovery}/10`:''}${s.notes?`。${s.notes}`:''}`;
+ e.text=formatSleepText(s);
  e.title=`睡眠 · ${day}`;e.status='note';e.tagIds=[...new Set([...(e.tagIds||[]),'sleep'])];
- e.metrics={...e.metrics,sleep_hours:duration.hours};e.metricMeta={...e.metricMeta,sleep_hours:{source:'manual',reason:'由用户填写的完整入睡、起床日期时间及夜醒时长计算'}};
+ e.metrics={...e.metrics,sleep_hours:duration.hours};e.metricMeta={...e.metricMeta,sleep_hours:{source:'manual',reason:'由用户填写的入睡/起床时间、起床日期（或手动指定日期）及夜醒时长计算'}};
  if(recovery!==null){e.metrics.sleep_recovery=recovery;e.metricMeta.sleep_recovery={source:'manual',reason:'用户填写的醒后恢复感'}}
  else{delete e.metrics.sleep_recovery;delete e.metricMeta.sleep_recovery}
- await saveEntry(e);closeModal('sleepLogModal');editingSleepId=null;renderAll();setStatus('#composerStatus',`已保存 ${day} 睡眠记录。`,'success');
+ await saveEntry(e);if(napOnly&&e.id!==napOnly.id)await deleteNapOnlyRecord(napOnly);closeModal('sleepLogModal');editingSleepId=null;renderAll();setStatus('#composerStatus',`已保存 ${day} 睡眠记录。`,'success');
 }
 function openMealLog(id=null){const rec=id?state.entries.find(e=>e.id===id&&e.structured?.kind==='meal'):null;editingMealId=rec?.id||null;const m=rec?.structured||{};$('#mealDate').value=m.day||localDay();$('#mealType').value=m.mealType||'lunch';$('#mealDescription').value=m.description||'';$('#mealCalories').value=rec?.metrics?.calories_kcal??'';$('#mealProtein').value=rec?.metrics?.protein_g??'';$('#mealCarbs').value=rec?.metrics?.carbs_g??'';$('#mealFat').value=rec?.metrics?.fat_g??'';mealPhoto=rec?.attachments?.[0]||null;mealEstimate=m.foods?.length?{foods:m.foods,summary:m.description,source:m.estimateSource}:null;mealNutritionEdited=false;renderMealPhoto();renderMealFoods();setStatus('#mealLogStatus','');openModal('mealLogModal')}
 async function chooseMealPhoto(file){if(!file)return;try{mealPhoto=await compressImage(file);mealEstimate=null;mealNutritionEdited=false;for(const id of ['mealCalories','mealProtein','mealCarbs','mealFat'])$('#'+id).value='';renderMealFoods();renderMealPhoto();setStatus('#mealLogStatus','图片已加载。点击 AI 估算营养（需要支持识图的模型）。','success')}catch(e){setStatus('#mealLogStatus',e.message,'error')}}
@@ -602,13 +731,13 @@ function renderMealFoods(){const root=$('#mealFoodItems');if(!mealEstimate?.food
 function mealNutritionTotalFromFood(foods,key){const valid=(foods||[]).map(f=>f[key]).filter(x=>validLifeNumber(x,0,20000));return valid.length?roundLife(valid.reduce((a,b)=>a+Number(b),0),1):null}
 async function estimateMealImage(){if(!mealPhoto){setStatus('#mealLogStatus','请先选择一张餐食照片。','error');return}const btn=$('#mealRecognizeBtn');btn.disabled=true;setStatus('#mealLogStatus','正在识别食物并估算营养…');try{const r=await api('/api/vision',{mode:'food',image:mealPhoto.dataUrl,description:$('#mealDescription').value.trim()});const foods=Array.isArray(r.foods)?r.foods.slice(0,10):[];mealEstimate={foods,summary:r.summary||'',source:'photo_estimate',assumptions:r.assumptions||[]};mealNutritionEdited=false;mealPhoto={...mealPhoto,vision:{summary:r.summary||'餐食识别',foods:foods.map(f=>({name:f.name,estimated_grams:f.estimated_grams}))}};if(!$('#mealDescription').value.trim()&&r.summary)$('#mealDescription').value=r.summary;for(const [id,key] of [['mealCalories','calories_kcal'],['mealProtein','protein_g'],['mealCarbs','carbs_g'],['mealFat','fat_g']]){const total=validLifeNumber(r.total?.[key],0,100000)?Number(r.total[key]):mealNutritionTotalFromFood(foods,key);$("#"+id).value=total??''}renderMealPhoto();renderMealFoods();setStatus('#mealLogStatus','已获得照片估算，请检查份量、油脂和营养合计，再点击保存。','success')}catch(e){setStatus('#mealLogStatus',`识别未成功：${e.message}。仍可手动填写保存。`,'error')}finally{btn.disabled=false}}
 async function saveMealLog(){const day=$('#mealDate').value,type=$('#mealType').value,desc=$('#mealDescription').value.trim();if(!safeDate(day)||!MEAL_LABELS[type]){setStatus('#mealLogStatus','请选择有效日期和餐次。','error');return}if(day>localDay()){setStatus('#mealLogStatus','不能记录未来餐食。','error');return}if(!desc&&!mealPhoto){setStatus('#mealLogStatus','请填写食物内容或上传餐食照片。','error');return}const values={},meta={};const oldKind=state.entries.find(x=>x.id===editingMealId)?.structured?.estimateSource;const src=mealEstimate?(mealNutritionEdited?'user_corrected_photo_estimate':(oldKind||'ai_photo_estimate')):'manual';for(const [id,key] of [['mealCalories','calories_kcal'],['mealProtein','protein_g'],['mealCarbs','carbs_g'],['mealFat','fat_g']]){const val=$('#'+id).value;if(val==='')continue;const num=lifeNum('#'+id,0,100000);if(num===null){setStatus('#mealLogStatus','营养数据须为不小于 0 的有效数字，未知请留空。','error');return}values[key]=roundLife(num,1);meta[key]={source:src==='manual'?'manual':src,reason:src==='manual'?'用户手动填写':'基于照片估算，可能经过用户确认修改'}}const m={kind:'meal',day,mealType:type,description:desc,foods:mealEstimate?.foods||[],estimateSource:src};let e=state.entries.find(x=>x.id===editingMealId)||buildEntry('',{},'note',['diet']);e.structured=m;e.eventDate=day;e.createdAt=entryDateTime(day);e.text=`【${MEAL_LABELS[type]}】${desc||mealEstimate?.summary||'餐食照片'}${values.calories_kcal!==undefined?` · 热量约 ${values.calories_kcal} kcal`:''}${values.protein_g!==undefined?` · 蛋白质约 ${values.protein_g}g`:''}`;e.title=`${MEAL_LABELS[type]} · ${day}`;e.status='note';e.tagIds=[...new Set([...(e.tagIds||[]),'diet'])];for(const k of ['calories_kcal','protein_g','carbs_g','fat_g']){delete e.metrics[k];delete e.metricMeta[k]}Object.assign(e.metrics,values);Object.assign(e.metricMeta,meta);e.attachments=mealPhoto?[{kind:'image',name:mealPhoto.name,dataUrl:mealPhoto.dataUrl,vision:mealPhoto.vision||null}]:[];await saveEntry(e);closeModal('mealLogModal');editingMealId=null;mealPhoto=null;mealEstimate=null;renderAll();setStatus('#composerStatus',`已保存 ${day} ${MEAL_LABELS[type]}。营养数据仅供趋势参考。`,'success')}
-function openLifeRecordById(id){const e=state.entries.find(x=>x.id===id);if(e?.structured?.kind==='sleep')openSleepLog(id);else if(e?.structured?.kind==='meal')openMealLog(id)}
-function renderStructuredDetail(e){const s=e.structured||{};if(s.kind==='sleep')return `<section class="life-record-detail"><h3>☾ 睡眠结构化数据</h3><p>入睡：${escapeHTML(sleepDates(s).bedDate)} ${escapeHTML(s.bedtime)} · 起床：${escapeHTML(sleepDates(s).wakeDate)} ${escapeHTML(s.wake)} · 夜间睡眠：约 ${escapeHTML(s.nightHours)} 小时</p><p>夜醒次数：${s.nightAwakenings??'未填'} · 夜醒分钟：${s.nightAwakeMinutes??'未填'} · 午睡分钟：${s.napMinutes??'未填'} · 醒后恢复感：${s.recovery??'未评分'}</p>${s.notes?`<p>备注：${escapeHTML(s.notes)}</p>`:''}</section>`;if(s.kind==='meal')return `<section class="life-record-detail"><h3>◉ 餐食结构化数据</h3><p>${escapeHTML(MEAL_LABELS[s.mealType]||'餐食')} · ${escapeHTML(s.day)} · ${escapeHTML(s.description||'')}</p><p>热量：${e.metrics?.calories_kcal??'未填'} kcal · 蛋白质：${e.metrics?.protein_g??'未填'} g · 碳水：${e.metrics?.carbs_g??'未填'} g · 脂肪：${e.metrics?.fat_g??'未填'} g</p><p class="muted-copy">来源：${s.estimateSource==='manual'?'手动填写':'照片估算（可能经人工修改）'}，不视为精确测量</p></section>`;return ''}
-function lifestyleStats(arr){const sleeps=arr.filter(e=>e.structured?.kind==='sleep'),meals=arr.filter(e=>e.structured?.kind==='meal');const sum=(xs,key)=>{const v=xs.map(e=>e.metrics?.[key]).filter(x=>Number.isFinite(Number(x))&&x!==null&&x!==undefined);return v.length?roundLife(v.reduce((a,b)=>a+Number(b),0),1):null};const avg=(xs,key)=>{const v=xs.map(e=>e.metrics?.[key]).filter(x=>Number.isFinite(Number(x))&&x!==null&&x!==undefined);return v.length?roundLife(v.reduce((a,b)=>a+Number(b),0)/v.length,1):null};const mealDays=new Set(meals.map(e=>e.structured.day)).size;return{sleep:{records:sleeps.length,avgHours:avg(sleeps,'sleep_hours'),avgRecovery:avg(sleeps,'sleep_recovery'),nightAwakeningDays:sleeps.filter(e=>e.structured.nightAwakenings>0).length,napDays:sleeps.filter(e=>e.structured.napMinutes>0).length},nutrition:{records:meals.length,days:mealDays,calories:sum(meals,'calories_kcal'),protein:sum(meals,'protein_g'),carbs:sum(meals,'carbs_g'),fat:sum(meals,'fat_g'),photoEstimated:meals.filter(e=>e.structured.estimateSource?.includes('photo')).length},note:'餐食统计仅包括已录入的餐次，不代表完整日摄入；照片估算存在份量和调味误差。'}}
+function openLifeRecordById(id){const e=state.entries.find(x=>x.id===id);if(e?.structured?.kind==='sleep')openSleepLog(id);else if(e?.structured?.kind==='nap')openNapQuick(e.structured.day);else if(e?.structured?.kind==='meal')openMealLog(id)}
+function renderStructuredDetail(e){const s=e.structured||{};if(s.kind==='sleep')return `<section class="life-record-detail"><h3>☾ 睡眠结构化数据</h3><p>入睡：${escapeHTML(sleepDates(s).bedDate)} ${escapeHTML(s.bedtime)} · 起床：${escapeHTML(sleepDates(s).wakeDate)} ${escapeHTML(s.wake)} · 夜间睡眠：约 ${escapeHTML(s.nightHours)} 小时</p><p>夜醒次数：${s.nightAwakenings??'未填'} · 夜醒分钟：${s.nightAwakeMinutes??'未填'} · 午睡分钟：${s.napMinutes??'未填'} · 醒后恢复感：${s.recovery??'未评分'}</p>${s.notes?`<p>备注：${escapeHTML(s.notes)}</p>`:''}</section>`;if(s.kind==='nap')return `<section class="life-record-detail"><h3>☀️ 午睡快捷记录</h3><p>${escapeHTML(s.day)} · ${escapeHTML(napSummary(s.napMinutes))}。如尚未记录夜间睡眠，之后会自动合并。</p></section>`;if(s.kind==='meal')return `<section class="life-record-detail"><h3>◉ 餐食结构化数据</h3><p>${escapeHTML(MEAL_LABELS[s.mealType]||'餐食')} · ${escapeHTML(s.day)} · ${escapeHTML(s.description||'')}</p><p>热量：${e.metrics?.calories_kcal??'未填'} kcal · 蛋白质：${e.metrics?.protein_g??'未填'} g · 碳水：${e.metrics?.carbs_g??'未填'} g · 脂肪：${e.metrics?.fat_g??'未填'} g</p><p class="muted-copy">来源：${s.estimateSource==='manual'?'手动填写':'照片估算（可能经人工修改）'}，不视为精确测量</p></section>`;return ''}
+function lifestyleStats(arr){const sleeps=arr.filter(e=>e.structured?.kind==='sleep'),meals=arr.filter(e=>e.structured?.kind==='meal');const sum=(xs,key)=>{const v=xs.map(e=>e.metrics?.[key]).filter(x=>Number.isFinite(Number(x))&&x!==null&&x!==undefined);return v.length?roundLife(v.reduce((a,b)=>a+Number(b),0),1):null};const avg=(xs,key)=>{const v=xs.map(e=>e.metrics?.[key]).filter(x=>Number.isFinite(Number(x))&&x!==null&&x!==undefined);return v.length?roundLife(v.reduce((a,b)=>a+Number(b),0)/v.length,1):null};const mealDays=new Set(meals.map(e=>e.structured.day)).size;return{sleep:{records:sleeps.length,avgHours:avg(sleeps,'sleep_hours'),avgRecovery:avg(sleeps,'sleep_recovery'),nightAwakeningDays:sleeps.filter(e=>e.structured.nightAwakenings>0).length,napDays:new Set(arr.filter(e=>['sleep','nap'].includes(e.structured?.kind)&&e.structured.napMinutes>0).map(e=>e.structured.day)).size},nutrition:{records:meals.length,days:mealDays,calories:sum(meals,'calories_kcal'),protein:sum(meals,'protein_g'),carbs:sum(meals,'carbs_g'),fat:sum(meals,'fat_g'),photoEstimated:meals.filter(e=>e.structured.estimateSource?.includes('photo')).length},note:'餐食统计仅包括已录入的餐次，不代表完整日摄入；照片估算存在份量和调味误差。'}}
 function lifestyleMetricHTML(label,val,unit='',sub=''){return `<div class="life-metric"><span>${escapeHTML(label)}</span><b>${val===null||val===undefined?'—':escapeHTML(val)}${val===null||val===undefined?'':unit}</b>${sub?`<small>${escapeHTML(sub)}</small>`:''}</div>`}
-function renderLifestyleOverview(){const r=$('#lifestyleOverview');if(!r)return;const today=localDay();const last7=state.entries.filter(e=>{const day=e.eventDate||dateKey(e.createdAt);return new Date(day+'T12:00:00').getTime()>Date.now()-8*86400000}),stats=lifestyleStats(last7);const todayMeal=state.entries.filter(e=>e.structured?.kind==='meal'&&e.structured.day===today),todaySleep=state.entries.find(e=>e.structured?.kind==='sleep'&&e.structured.day===today);const todayKcal=todayMeal.reduce((acc,e)=>acc+(e.metrics?.calories_kcal||0),0);r.innerHTML=lifestyleMetricHTML('今日夜间睡眠',todaySleep?.structured?.nightHours??null,' h','睡眠日期按起床日')+lifestyleMetricHTML('今日已记录餐食',todayMeal.length,' 餐','未记录的餐次不计入')+lifestyleMetricHTML('今日已记录热量',todayMeal.some(e=>e.metrics?.calories_kcal!==undefined)?roundLife(todayKcal,0):null,' kcal','粗略估算')+lifestyleMetricHTML('今日已记录蛋白质',todayMeal.some(e=>e.metrics?.protein_g!==undefined)?roundLife(todayMeal.reduce((a,e)=>a+(e.metrics?.protein_g||0),0),1):null,' g','粗略估算')+lifestyleMetricHTML('今日已记录碳水',todayMeal.some(e=>e.metrics?.carbs_g!==undefined)?roundLife(todayMeal.reduce((a,e)=>a+(e.metrics?.carbs_g||0),0),1):null,' g','粗略估算')+lifestyleMetricHTML('今日已记录脂肪',todayMeal.some(e=>e.metrics?.fat_g!==undefined)?roundLife(todayMeal.reduce((a,e)=>a+(e.metrics?.fat_g||0),0),1):null,' g','粗略估算')+lifestyleMetricHTML('近7天平均睡眠',stats.sleep.avgHours,' h',`记录 ${stats.sleep.records} 晚`);for(const [id,kind,empty] of [['#recentSleepLogs','sleep','还没有睡眠记录'],['#recentMealLogs','meal','还没有餐食记录']]){const el=$(id);if(!el)continue;const list=lifeEntries(kind).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).slice(0,5);el.innerHTML=list.length?list.map(e=>`<button class="life-recent-item" data-id="${escapeHTML(e.id)}"><span>${escapeHTML(e.title)}</span><small>${kind==='sleep'?`${e.structured.nightHours} h · 恢复 ${e.structured.recovery??'—'}/10`:`${e.metrics?.calories_kcal??'—'} kcal · 蛋白 ${e.metrics?.protein_g??'—'}g`}</small></button>`).join(''):`<p class="muted-copy">${empty}</p>`;el.querySelectorAll('.life-recent-item').forEach(b=>b.onclick=()=>openRecordDetail(b.dataset.id))}}
-function renderInsightLifestyleStats(arr){const el=$('#insightLifestyleStats');if(!el)return;const s=lifestyleStats(arr);el.innerHTML=lifestyleMetricHTML('夜间平均睡眠',s.sleep.avgHours,' h',`${s.sleep.records} 晚`)+lifestyleMetricHTML('醒后平均恢复感',s.sleep.avgRecovery,'/10','未评分不计入')+lifestyleMetricHTML('已录入餐次',s.nutrition.records,' 餐',`跨 ${s.nutrition.days} 天`)+lifestyleMetricHTML('已记录热量合计',s.nutrition.calories,' kcal','仅已记录餐次，不等于全部摄入')+lifestyleMetricHTML('已记录蛋白质合计',s.nutrition.protein,' g','估算累计')+lifestyleMetricHTML('已记录碳水合计',s.nutrition.carbs,' g','估算累计')+lifestyleMetricHTML('已记录脂肪合计',s.nutrition.fat,' g','估算累计')}
-function bindLifestyleEvents(){for(const [id,fn] of [['openSleepFromHome',()=>openSleepLog()],['openSleepFromRecords',()=>openSleepLog()],['openMealFromHome',()=>openMealLog()],['openMealFromRecords',()=>openMealLog()]])$('#'+id).onclick=fn;['#sleepBedDate','#sleepBedtime','#sleepWakeDate','#sleepWakeTime','#sleepWakeMinutes','#sleepRecovery'].forEach(id=>{$(id).oninput=updateSleepPreview});$('#saveSleepLog').onclick=saveSleepLog;$('#mealImageBtn').onclick=()=>$('#mealImageInput').click();$('#mealImageInput').onchange=e=>chooseMealPhoto(e.target.files?.[0]);$('#mealRecognizeBtn').onclick=estimateMealImage;$('#saveMealLog').onclick=saveMealLog;for(const id of ['mealCalories','mealProtein','mealCarbs','mealFat'])$('#'+id).oninput=()=>{mealNutritionEdited=true}}
+function renderLifestyleOverview(){const r=$('#lifestyleOverview');if(!r)return;const today=localDay();const last7=state.entries.filter(e=>{const day=e.eventDate||dateKey(e.createdAt);return new Date(day+'T12:00:00').getTime()>Date.now()-8*86400000}),stats=lifestyleStats(last7);const todayMeal=state.entries.filter(e=>e.structured?.kind==='meal'&&e.structured.day===today),todaySleep=state.entries.find(e=>e.structured?.kind==='sleep'&&e.structured.day===today);const todayKcal=todayMeal.reduce((acc,e)=>acc+(e.metrics?.calories_kcal||0),0);r.innerHTML=lifestyleMetricHTML('今日夜间睡眠',todaySleep?.structured?.nightHours??null,' h','睡眠日期按起床日')+lifestyleMetricHTML('今日午睡',napValueForDay(today),' 分钟','没有午睡记 0；未记录显示 —')+lifestyleMetricHTML('今日已记录餐食',todayMeal.length,' 餐','未记录的餐次不计入')+lifestyleMetricHTML('今日已记录热量',todayMeal.some(e=>e.metrics?.calories_kcal!==undefined)?roundLife(todayKcal,0):null,' kcal','粗略估算')+lifestyleMetricHTML('今日已记录蛋白质',todayMeal.some(e=>e.metrics?.protein_g!==undefined)?roundLife(todayMeal.reduce((a,e)=>a+(e.metrics?.protein_g||0),0),1):null,' g','粗略估算')+lifestyleMetricHTML('今日已记录碳水',todayMeal.some(e=>e.metrics?.carbs_g!==undefined)?roundLife(todayMeal.reduce((a,e)=>a+(e.metrics?.carbs_g||0),0),1):null,' g','粗略估算')+lifestyleMetricHTML('今日已记录脂肪',todayMeal.some(e=>e.metrics?.fat_g!==undefined)?roundLife(todayMeal.reduce((a,e)=>a+(e.metrics?.fat_g||0),0),1):null,' g','粗略估算')+lifestyleMetricHTML('近7天平均睡眠',stats.sleep.avgHours,' h',`记录 ${stats.sleep.records} 晚`);for(const [id,kind,empty] of [['#recentSleepLogs','sleep','还没有睡眠记录'],['#recentMealLogs','meal','还没有餐食记录']]){const el=$(id);if(!el)continue;const list=(kind==='sleep'?state.entries.filter(e=>['sleep','nap'].includes(e.structured?.kind)):lifeEntries(kind)).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).slice(0,5);el.innerHTML=list.length?list.map(e=>`<button class="life-recent-item" data-id="${escapeHTML(e.id)}"><span>${escapeHTML(e.title)}</span><small>${kind==='sleep'?(e.structured.kind==='nap'?napSummary(e.structured.napMinutes):`${e.structured.nightHours} h · 午睡 ${napSummary(e.structured.napMinutes)}`):`${e.metrics?.calories_kcal??'—'} kcal · 蛋白 ${e.metrics?.protein_g??'—'}g`}</small></button>`).join(''):`<p class="muted-copy">${empty}</p>`;el.querySelectorAll('.life-recent-item').forEach(b=>b.onclick=()=>openRecordDetail(b.dataset.id))}}
+function renderInsightLifestyleStats(arr){const el=$('#insightLifestyleStats');if(!el)return;const s=lifestyleStats(arr);el.innerHTML=lifestyleMetricHTML('夜间平均睡眠',s.sleep.avgHours,' h',`${s.sleep.records} 晚`)+lifestyleMetricHTML('醒后平均恢复感',s.sleep.avgRecovery,'/10','未评分不计入')+lifestyleMetricHTML('记录有午睡的天数',s.sleep.napDays,' 天','包含独立午睡速记')+lifestyleMetricHTML('已录入餐次',s.nutrition.records,' 餐',`跨 ${s.nutrition.days} 天`)+lifestyleMetricHTML('已记录热量合计',s.nutrition.calories,' kcal','仅已记录餐次，不等于全部摄入')+lifestyleMetricHTML('已记录蛋白质合计',s.nutrition.protein,' g','估算累计')+lifestyleMetricHTML('已记录碳水合计',s.nutrition.carbs,' g','估算累计')+lifestyleMetricHTML('已记录脂肪合计',s.nutrition.fat,' g','估算累计')}
+function bindLifestyleEvents(){for(const [id,fn] of [['openSleepFromHome',()=>openSleepLog()],['openSleepFromRecords',()=>openSleepLog()],['openNapFromHome',()=>openNapQuick()],['openNapFromRecords',()=>openNapQuick()],['openMealFromHome',()=>openMealLog()],['openMealFromRecords',()=>openMealLog()]])$('#'+id).onclick=fn;['#sleepBedDate','#sleepBedtime','#sleepWakeDate','#sleepWakeTime','#sleepWakeMinutes','#sleepNap','#sleepRecovery'].forEach(id=>{$(id).oninput=updateSleepPreview});$('#sleepManualDate').onchange=syncSleepDateOverride;$('#sleepWakeDate').addEventListener('change',syncNapForNightDate);$$('#sleepLogModal .life-nap-pill').forEach(b=>b.onclick=()=>setSleepNapSelection(b.dataset.nap));$('#saveSleepLog').onclick=saveSleepLog;$('#saveNapQuick').onclick=saveQuickNap;$$('.life-nap-quick-choices [data-quick-nap]').forEach(el=>el.onclick=()=>setQuickNapChoice(el.dataset.quickNap));$('#napQuickDate').onchange=()=>{const d=$('#napQuickDate').value;const current=napValueForDay(d);$('#napQuickCustomMinutes').value='';const preset=current===null||current===undefined?null:[0,20,30,60].includes(Number(current))?String(current):'custom';if(preset==='custom')$('#napQuickCustomMinutes').value=current;setQuickNapChoice(preset)};$('#napQuickCustomMinutes').oninput=updateQuickNapPreview;$('#mealImageBtn').onclick=()=>$('#mealImageInput').click();$('#mealImageInput').onchange=e=>chooseMealPhoto(e.target.files?.[0]);$('#mealRecognizeBtn').onclick=estimateMealImage;$('#saveMealLog').onclick=saveMealLog;for(const id of ['mealCalories','mealProtein','mealCarbs','mealFat'])$('#'+id).oninput=()=>{mealNutritionEdited=true}}
 function bindEvents(){
  bindLifestyleEvents();
  $$('[data-page]').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.page)));$$('[data-goto]').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.goto)));$$('[data-close]').forEach(b=>b.addEventListener('click',()=>closeModal(b.dataset.close)));$$('.modal-backdrop').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)closeModal(m.id)}));

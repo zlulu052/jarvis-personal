@@ -116,3 +116,27 @@ textarea,input,select{width:100%;border:1px solid rgba(118,174,204,.18);backgrou
 @media(max-width:360px){.life-form-grid{grid-template-columns:1fr}.life-form-grid .span-2{grid-column:1}}
 
 .life-form-grid input[type="date"],.life-form-grid input[type="time"]{color-scheme:dark}
+
+
+/* v5.2.2 minimal sleep input: 3 main fields, nap chips, optional details */
+.life-sleep-intro{line-height:1.6;margin:8px 0 13px;font-size:12px}.life-sleep-intro strong{color:#bcf0ff}
+.life-sleep-quick{padding:14px;border:1px solid rgba(127,204,232,.17);background:rgba(34,90,117,.09);border-radius:16px;gap:11px}
+.life-sleep-quick .life-wake-date-label{margin-bottom:2px}
+.life-sleep-quick input[type="date"],.life-sleep-quick input[type="time"]{height:50px;min-height:50px;font:inherit;font-size:16px;color:#e7f8ff;background:rgba(4,17,26,.75);border:1px solid rgba(127,204,232,.17);border-radius:12px;padding:9px 10px}
+.life-sleep-nap{margin-top:15px;padding:3px 0 7px}.life-nap-title{color:#d7eefb;font-size:14px;font-weight:700;margin-bottom:10px}.life-nap-title small{display:block;color:#88adbe;font-size:11px;font-weight:400;margin-top:5px}
+.life-nap-pills{display:flex;flex-wrap:wrap;gap:7px}.life-nap-pill{background:rgba(13,36,52,.85);border:1px solid rgba(127,204,232,.18);border-radius:20px;padding:9px 13px;font:inherit;font-size:12px;color:#bed9e8;cursor:pointer;min-height:38px;white-space:nowrap}.life-nap-pill.selected{color:#08202d;background:#a4e5fb;border-color:#a4e5fb;font-weight:800}.life-nap-pill:focus-visible{outline:2px solid #a4e5fb;outline-offset:2px}
+.life-nap-custom{margin-top:9px;max-width:230px}.life-nap-custom label{display:flex;flex-direction:column;gap:6px;color:#abc8d8;font-size:12px}.life-nap-custom input{min-height:43px;max-width:100%;border-radius:12px}
+.life-sleep-details{margin-top:13px;border:1px solid rgba(127,204,232,.17);border-radius:14px;padding:0 12px;background:rgba(8,26,39,.43)}.life-sleep-details summary{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#b6d5e6;font-size:13px;font-weight:750;padding:13px 0;cursor:pointer;list-style:none}.life-sleep-details summary::-webkit-details-marker{display:none}.life-sleep-details summary::after{content:'⌄';color:#83d6f6}.life-sleep-details[open] summary::after{content:'⌃'}.life-sleep-details summary span{font-size:10px;color:#789db1;font-weight:400}.life-advanced-grid{padding:3px 0 14px}.life-explicit-date-toggle{flex-direction:row!important;align-items:center;gap:9px!important;font-size:12px}.life-explicit-date-toggle input{width:16px!important;height:16px;accent-color:#86defc;flex:none}.life-manual-beddate input{min-height:46px}
+@media(max-width:480px){.life-nap-pills{gap:6px}.life-nap-pill{padding:8px 11px}.life-sleep-details summary span{font-size:10px}.life-sleep-quick{padding:11px}.life-sleep-quick input[type="date"],.life-sleep-quick input[type="time"]{padding:8px 6px}}
+
+/* v5.2.3: truly independent nap button, no bedtime fields required */
+@media(min-width:701px){.life-home-shortcuts,.lifestyle-entry-row{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:700px){.life-nap-entry{grid-column:1/-1}}
+.life-nap-entry{border-color:rgba(242,188,105,.27);background:linear-gradient(120deg,rgba(131,97,36,.16),rgba(10,32,44,.74))}
+.life-nap-entry .life-home-icon,.life-nap-entry>span:first-child{color:#ffdda3;background:rgba(247,193,101,.13)}
+.life-nap-quick-modal{max-width:490px!important}.life-nap-quick-day{border:1px solid rgba(127,204,232,.17);background:rgba(60,144,172,.08);border-radius:13px;padding:13px;display:flex;gap:7px;align-items:center;flex-wrap:wrap;color:#cce5f2;font-size:13px}
+.life-nap-quick-day #napQuickLinkHint{font-size:11px;display:block;flex:0 0 100%;color:#8db1c2;margin-left:20px}
+.life-nap-date-optional{margin:10px 0 15px;color:#a1c4d5;font-size:12px}.life-nap-date-optional summary{cursor:pointer;display:inline-block;padding:7px 0}.life-nap-date-optional label{display:grid;gap:7px;margin:8px 0;color:#a1c4d5}.life-nap-date-optional input{max-width:240px;min-height:45px;color-scheme:dark}
+.life-nap-quick-choices{gap:8px}.life-nap-quick-choices .life-nap-pill{font-size:13px;padding:10px 14px;min-height:42px}
+.life-nap-quick-custom{display:grid;gap:7px;font-size:12px;color:#bdd2df;margin-top:14px}.life-nap-quick-custom.hidden{display:none}.life-nap-quick-custom input{max-width:220px;min-height:46px;font-size:16px;color-scheme:dark}
+.life-sleep-details .life-sleep-nap{margin-top:6px;padding-bottom:10px;border-top:1px solid rgba(127,204,232,.13);padding-top:13px}

@@ -10,7 +10,7 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/icon-180.png">
 <link rel="stylesheet" href="/app.css">
-<title>Jarvis 5.2 私人版</title>
+<title>Jarvis 5.2.3 私人版</title>
 </head>
 <body>
 <div class="app-shell">
@@ -18,7 +18,7 @@
     <div class="brand-wrap">
       <div class="brand-orb" aria-hidden="true"></div>
       <div>
-        <div class="brand">JARVIS <span class="version">5.2</span></div>
+        <div class="brand">JARVIS <span class="version">5.2.3</span></div>
         <div class="subtitle">PERSONAL INTELLIGENCE SYSTEM</div>
       </div>
     </div>
@@ -93,6 +93,7 @@
       <div class="life-home-shortcuts">
         <button id="openSleepFromHome" class="life-home-btn" type="button"><span class="life-home-icon">☾</span><span><b>睡眠速记</b><small>睡了多久？醒后感觉如何？</small></span><span>→</span></button>
         <button id="openMealFromHome" class="life-home-btn" type="button"><span class="life-home-icon">◉</span><span><b>饮食速记</b><small>拍照识别热量与营养</small></span><span>→</span></button>
+        <button id="openNapFromHome" class="life-home-btn life-nap-entry" type="button"><span class="life-home-icon">☀</span><span><b>午睡速记</b><small>选个时长直接保存，不必再填夜间时间</small></span><span>→</span></button>
       </div>
       <div class="stats-grid" id="statsGrid">
         <div class="stat-card"><div class="stat-label">本月记录</div><div class="stat-value" id="statMonth">0</div><div class="stat-sub">条</div></div>
@@ -139,6 +140,7 @@
       <div class="lifestyle-entry-row">
         <button class="lifestyle-launch" id="openSleepFromRecords" type="button"><span>☾</span><b>记录睡眠</b><small>入睡 · 起床 · 午睡 · 醒后状态</small></button>
         <button class="lifestyle-launch" id="openMealFromRecords" type="button"><span>◉</span><b>记录饮食</b><small>拍照识别 · 热量 · 蛋白质</small></button>
+        <button class="lifestyle-launch life-nap-entry" id="openNapFromRecords" type="button"><span>☀</span><b>记录午睡</b><small>选时长即保存 · 自动关联当天</small></button>
       </div>
       <div class="card lifestyle-overview">
         <div class="card-head"><div><div class="eyebrow">DAILY LIFE</div><h2>每日生活数据</h2></div><span class="muted-copy">数据来自你确认保存的固定记录</span></div>
@@ -354,24 +356,64 @@
   <button class="mobile-nav-btn" data-page="settings"><span>⚙</span><small>设置</small></button>
 </nav>
 
+<!-- 独立午睡速记：默认当天，不需要填写夜间睡眠信息 -->
+<div class="modal-backdrop hidden" id="napQuickModal">
+  <div class="modal-panel life-modal life-nap-quick-modal">
+    <button class="modal-close" data-close="napQuickModal" type="button" aria-label="关闭">×</button>
+    <div class="eyebrow">NAP QUICK LOG</div><h2>☀️ 午睡速记</h2>
+    <p class="muted-copy life-sleep-intro">选择午睡时长，直接保存到当天；<strong>不用再填入睡或起床时间</strong>。</p>
+    <div class="life-nap-quick-day">📅 <b id="napQuickDayText">今天</b><span id="napQuickLinkHint">会自动关联当天的睡眠记录</span></div>
+    <details class="life-nap-date-optional" id="napQuickDateDetails"><summary>补记其他日期？</summary><label>午睡日期<input type="date" id="napQuickDate"></label></details>
+    <div class="life-nap-pills life-nap-quick-choices" role="group" aria-label="选择午睡时长">
+      <button class="life-nap-pill" type="button" data-quick-nap="0">没有</button>
+      <button class="life-nap-pill" type="button" data-quick-nap="20">20分钟</button>
+      <button class="life-nap-pill" type="button" data-quick-nap="30">30分钟</button>
+      <button class="life-nap-pill" type="button" data-quick-nap="60">1小时</button>
+      <button class="life-nap-pill" type="button" data-quick-nap="custom">其他</button>
+      <button class="life-nap-pill" type="button" data-quick-nap="">清除午睡记录</button>
+    </div>
+    <label class="life-nap-quick-custom hidden" id="napQuickCustomRow">午睡时长（分钟）<input id="napQuickCustomMinutes" type="number" min="0" max="600" inputmode="numeric" placeholder="例如：45"></label>
+    <div class="life-preview" id="napQuickPreview">选择一个时长即可。</div>
+    <div class="modal-actions"><button type="button" class="primary-btn" id="saveNapQuick">保存午睡</button><button type="button" class="secondary-btn" data-close="napQuickModal">取消</button></div>
+    <div class="status-line" id="napQuickStatus" aria-live="polite"></div>
+  </div>
+</div>
+
 <div class="modal-backdrop hidden" id="sleepLogModal">
   <div class="modal-panel large-modal life-modal">
     <button class="modal-close" data-close="sleepLogModal">×</button>
     <div class="eyebrow">SLEEP JOURNAL</div><h2>☾ 睡眠记录</h2>
-    <p class="muted-copy">入睡和起床各自填写日期与时间，自动计算跨天睡眠。示例：10月18日 21:00 入睡 → 10月19日 07:00 起床，共10小时。夜醒、午睡等不知道可留空。</p>
-    <div class="life-form-grid">
-      <div class="life-sleep-time-title span-2">🌙 入睡</div>
-      <label>入睡日期<input id="sleepBedDate" type="date" required></label>
-      <label>大致入睡时间<input id="sleepBedtime" type="time" required></label>
-      <div class="life-sleep-time-title span-2">☀️ 起床</div>
-      <label>起床日期<input id="sleepWakeDate" type="date" required></label>
-      <label>大致起床时间<input id="sleepWakeTime" type="time" required></label>
-      <label>夜间醒来次数<select id="sleepWakeCount"><option value="">未记录</option><option value="0">没有</option><option value="1">1次</option><option value="2">2次</option><option value="3">3次</option><option value="4">4次以上</option></select></label>
-      <label>夜间醒来累计分钟（可选）<input id="sleepWakeMinutes" type="number" min="0" max="720" step="5" inputmode="numeric" placeholder="不确定就留空"></label>
-      <label>午睡（分钟）<input id="sleepNap" type="number" min="0" max="600" step="5" inputmode="numeric" placeholder="没午睡填0"></label>
-      <label class="span-2">醒后恢复感 <span class="life-range-value" id="sleepRecoveryValue">未评分</span><input id="sleepRecovery" type="range" min="0" max="10" step="1" value="0"><small>滑到 1–10 分；0 表示不记录评分，并不是恢复感为 0</small></label>
-      <label class="span-2">睡眠备注（可选）<textarea id="sleepNotes" rows="2" placeholder="例如：入睡前喝了咖啡，做梦较多，起床后仍有点困"></textarea></label>
+    <p class="muted-copy life-sleep-intro">每天只需填 <strong>起床日期、入睡时间、起床时间</strong>。午睡可在首页直接点「午睡速记」，无需再次填写夜间时间。</p>
+    <div class="life-form-grid life-sleep-quick">
+      <label class="span-2 life-wake-date-label">📅 起床日期<input id="sleepWakeDate" type="date" required><small>这条睡眠归档到起床当天</small></label>
+      <label>🌙 入睡时间<input id="sleepBedtime" type="time" required></label>
+      <label>☀️ 起床时间<input id="sleepWakeTime" type="time" required></label>
     </div>
+    <details class="life-sleep-details" id="sleepAdvanced">
+      <summary>更多选项 <span>夜醒 · 午睡 · 恢复感 · 备注</span></summary>
+      <div class="life-form-grid life-advanced-grid">
+        <label class="span-2 life-explicit-date-toggle"><input id="sleepManualDate" type="checkbox"> 入睡日期不是自动推算的日期？手动设置</label>
+        <label class="span-2 life-manual-beddate hidden" id="sleepManualDateRow">实际入睡日期<input id="sleepBedDate" type="date"></label>
+        <label>夜间醒来次数<select id="sleepWakeCount"><option value="">未记录</option><option value="0">没有</option><option value="1">1次</option><option value="2">2次</option><option value="3">3次</option><option value="4">4次以上</option></select></label>
+        <label>夜醒累计分钟<input id="sleepWakeMinutes" type="number" min="0" max="720" step="5" inputmode="numeric" placeholder="可不填"></label>
+        <label class="span-2">醒后恢复感 <span class="life-range-value" id="sleepRecoveryValue">未评分</span><input id="sleepRecovery" type="range" min="0" max="10" step="1" value="0"><small>可选，0 表示未评分</small></label>
+        <label class="span-2">备注 <textarea id="sleepNotes" rows="2" placeholder="例如：夜里醒来、做梦、睡前喝咖啡……"></textarea></label>
+      </div>
+    <div class="life-sleep-nap">
+      <div class="life-nap-title">😴 当天午睡 <small id="sleepNapDayLabel">按起床日期计算</small></div>
+      <div class="life-nap-pills" role="group" aria-label="午睡时长快捷选择">
+        <button type="button" data-nap="" class="life-nap-pill">未记录</button>
+        <button type="button" data-nap="0" class="life-nap-pill">没有</button>
+        <button type="button" data-nap="20" class="life-nap-pill">20分</button>
+        <button type="button" data-nap="30" class="life-nap-pill">30分</button>
+        <button type="button" data-nap="60" class="life-nap-pill">1小时</button>
+        <button type="button" data-nap="custom" class="life-nap-pill">其他</button>
+      </div>
+      <div class="life-nap-custom hidden" id="sleepNapCustomRow">
+        <label>其他午睡时长（分钟）<input id="sleepNap" type="number" min="0" max="600" step="5" inputmode="numeric" placeholder="例如 45"></label>
+      </div>
+    </div>
+    </details>
     <div class="life-preview" id="sleepDurationPreview">填写入睡与起床时间后，自动计算夜间睡眠时长。</div>
     <div class="modal-actions"><button id="saveSleepLog" class="primary-btn">保存睡眠记录</button><button type="button" class="secondary-btn" data-close="sleepLogModal">取消</button></div>
     <div class="status-line" id="sleepLogStatus"></div>
