@@ -1,4 +1,4 @@
-const CACHE='jarvis-v5-2-3-nap-quick';
+const CACHE='jarvis-v5-3-expert-center';
 const STATIC=['/','/index.html','/app.css','/app.js','/manifest.webmanifest','/icon-180.png','/icon-192.png','/icon-512.png'];
 self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(STATIC)))});
 self.addEventListener('activate',e=>{e.waitUntil((async()=>{for(const k of await caches.keys())if(k!==CACHE)await caches.delete(k);await self.clients.claim()})())});

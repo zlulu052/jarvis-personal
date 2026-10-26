@@ -254,17 +254,18 @@
 
     <section class="page" id="page-ask">
       <div class="page-head">
-        <div><div class="eyebrow">ASK JARVIS</div><h1>Jarvis 问答</h1><p>自由提问。Jarvis 会先读取你的长期记录、相关事件和专题历史；信息不足时会先追问。</p></div>
+        <div><div class="eyebrow">JARVIS · EXPERT ASSISTANTS</div><h1>专业助理中心</h1><p>一个 Jarvis，多个专业视角。共用记录与长期记忆，话题历史独立保存。</p></div>
         <button class="secondary-btn small-btn" id="newSpaceBtn">＋ 新建专题</button>
       </div>
       <div class="ask-layout">
         <aside class="card ask-sidebar">
-          <div class="eyebrow">专题空间</div>
+          <div class="eyebrow">助理 / 专题</div>
           <div id="askSpaceList" class="space-list"></div>
-          <p class="muted-copy ask-tip">例如：关系专题、公务员考试、减脂、工作发展。专题会优先调用与它相关的记录。</p>
+          <p class="muted-copy ask-tip">专业助理不会创建第二套数据库；仍可新建考试、工作等个人专题。</p>
         </aside>
         <div class="card ask-main">
           <div class="card-head"><div><div class="eyebrow" id="askSpaceEyebrow">当前专题</div><h2 id="askSpaceTitle">全局问答</h2></div><button class="primary-btn small-btn" id="askNewTopicBtn">＋ 新话题</button></div>
+          <div id="assistantGuide" class="assistant-guide"></div>
           <div class="ask-topics-head"><b>话题列表</b><span>每个问题单独整理，不用翻整段历史</span></div>
           <div id="askTopicList" class="ask-topic-list"></div>
           <div class="ask-conversation-bar"><strong id="askActiveTopic">新话题</strong><button class="ghost-btn ask-delete-current" id="clearAskBtn">删除当前话题</button></div>
@@ -276,9 +277,14 @@
               <button class="secondary-btn" id="askImageBtn" type="button">🖼 添加图片</button>
               <div class="image-preview hidden" id="askImagePreview"></div>
             </div>
+            <div class="ask-context-controls">
+              <label class="ask-web-setting" id="askPrivateContextRow"><input type="checkbox" id="askPrivateContext"><span>本次允许跨领域参考私密关系记录（默认关闭）</span></label>
+              <label class="ask-web-setting"><input type="checkbox" id="askOtherTopics"><span>本次参考其他助理的话题摘要（可选）</span></label>
+              <div class="ask-evidence-preview" id="askEvidencePreview">分析前会显示所选证据数量。</div>
+            </div>
             <label class="ask-web-setting"><input type="checkbox" id="askWebToggle"><span>🌐 本次提问联网搜索（会把本次问题发给搜索服务）</span></label>
             <div class="ask-web-status" id="askWebStatus">正在检查联网搜索配置…</div>
-            <button class="primary-btn" id="askSendBtn">向 Jarvis 提问</button>
+            <button class="primary-btn" id="askSendBtn">向当前助理提问</button>
             <div class="status-line" id="askStatus"></div>
           </div>
         </div>

@@ -1,4 +1,4 @@
-// Jarvis v5.2.3 - follow-up history, topical chats and opt-in web search reading/editing + multimodal records, deeper insights, Ask Jarvis
+// Jarvis v5.3 private: expert assistant center on shared IndexedDB memory; v5.2.3 routines preserved
 const DB_NAME='jarvis_v4_db';
 const DB_VERSION=4;
 const STORES=['entries','plans','summaries','tags','feedback','meta','snapshots','spaces','conversations','topics','insightReports','actionExperiments'];
@@ -131,13 +131,28 @@ async function seedTags(){
  if(!tags.length)for(const t of DEFAULT_TAGS)await dbPut('tags',t);
  await metaSet('tags_seeded',true);
 }
+// New expert lenses reuse the existing spaces/topics stores; no destructive schema change.
+const EXPERTS={
+ general:{icon:'◎',label:'综合 Jarvis',subtitle:'跨领域梳理生活问题',examples:['结合过去30天的记录，我应该先改善哪件事？','最近的情绪、睡眠和执行情况有什么联系？'],priority:['emotion','sleep','work','study','diet','fitness','plan','health','social']},
+ relationship:{icon:'♡',label:'情感与人际',subtitle:'关系、沟通与自我边界',examples:['结合事件时间线，哪些事实确定、哪些只是我的猜测？','面对关系中的不确定性，我可以怎么沟通？'],priority:['love','emotion','social','family','decision']},
+ sleep:{icon:'☾',label:'睡眠与恢复',subtitle:'作息、夜醒、恢复感及精力',examples:['结合睡眠速记，分析最近为什么醒来还很疲惫？','午睡、夜间睡眠与第二天精力有什么关联？'],priority:['sleep','health','emotion','diet','fitness','work']},
+ diet:{icon:'◉',label:'饮食与营养',subtitle:'餐食照片、营养估算及饮食习惯',examples:['结合最近的餐食记录，我的饮食有哪些可以调整的地方？','我最近记录的蛋白质来源够丰富吗？有哪些不确定的地方？'],priority:['diet','health','fitness','sleep','emotion']},
+ study:{icon:'▤',label:'学习与成长',subtitle:'执行、拖延、考试与学习计划',examples:['结合学习与睡眠记录，我为什么总难以开始？','我最近的学习计划执行情况如何改善？'],priority:['study','reading','plan','work','sleep','emotion']}
+};
+function expertKind(space){return space?.assistantKind||({general:'general',relationship:'relationship','sleep-expert':'sleep','diet-expert':'diet','study-expert':'study'}[space?.id]||'custom')}
 async function seedSpaces(){
- const spaces=await dbGetAll('spaces');if(spaces.length)return;
- const base=[
-  {id:'general',name:'全局问答',system:true,tagIds:[],description:'读取全部生活记录，适合综合问题。',createdAt:nowISO()},
-  {id:'relationship',name:'关系专题',system:true,tagIds:['love','emotion'],description:'优先读取关系、情绪和相关事件，适合长期关系分析。',createdAt:nowISO()}
+ const existing=await dbGetAll('spaces');
+ const presets=[
+  {id:'general',name:'综合 Jarvis',assistantKind:'general',tagIds:[],description:'整体状态与跨领域分析'},
+  {id:'relationship',name:'情感与人际助理',assistantKind:'relationship',tagIds:['love','emotion','social'],description:'关系事件、沟通与边界'},
+  {id:'sleep-expert',name:'睡眠与恢复助理',assistantKind:'sleep',tagIds:['sleep','health'],description:'夜间睡眠、午睡与疲劳恢复'},
+  {id:'diet-expert',name:'饮食与营养助理',assistantKind:'diet',tagIds:['diet','health'],description:'结构化餐食与营养估算'},
+  {id:'study-expert',name:'学习与成长助理',assistantKind:'study',tagIds:['study','reading','plan'],description:'学习习惯、执行与拖延'}
  ];
- for(const x of base)await dbPut('spaces',x);
+ for(const preset of presets){const found=existing.find(x=>x.id===preset.id);if(found){
+   // Keep existing names/history/customizations while adding an assistant lens.
+   if(found.assistantKind!==preset.assistantKind)await dbPut('spaces',{...found,assistantKind:preset.assistantKind});
+  }else await dbPut('spaces',{...preset,system:true,createdAt:nowISO()});}
 }
 
 async function loadState(){
@@ -361,7 +376,7 @@ function renderSummaries(){const el=$('#summaryList');el.innerHTML=state.summari
 async function updateSummary(days){const arr=state.entries.filter(e=>(Date.now()-new Date(e.createdAt))/86400000<=days);if(!arr.length){setStatus('#summaryStatus','这个时间范围还没有记录。');return}setStatus('#summaryStatus',`正在整理最近 ${days} 天的长期记忆…`);try{const d=await api('/api/summarize',{profile:state.profile,days,entries:serializeEntries(arr.slice(-350)),plans:activePlansForAI()});const s={days,updatedAt:nowISO(),...d};await dbPut('summaries',s);const i=state.summaries.findIndex(x=>x.days===days);if(i>=0)state.summaries[i]=s;else state.summaries.push(s);renderSummaries();setStatus('#summaryStatus','阶段总结已更新。','success')}catch(e){setStatus('#summaryStatus',e.message,'error')}}
 
 async function exportData(){const data=await collectBackup();const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`jarvis-v5-2-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);setStatus('#backupStatus','备份文件已生成。iPhone 可选择保存到“文件 → 我的 iPhone”。','success')}
-async function collectBackup(){return{version:'5.2.0',exportedAt:nowISO(),profile:state.profile,pending:state.pending,entries:state.entries,plans:state.plans,summaries:state.summaries,tags:state.tags,feedback:state.feedback,spaces:state.spaces,conversations:state.conversations,topics:state.topics,insightReports:state.insightReports,actionExperiments:state.actionExperiments}}
+async function collectBackup(){return{version:'5.3.0',exportedAt:nowISO(),profile:state.profile,pending:state.pending,entries:state.entries,plans:state.plans,summaries:state.summaries,tags:state.tags,feedback:state.feedback,spaces:state.spaces,conversations:state.conversations,topics:state.topics,insightReports:state.insightReports,actionExperiments:state.actionExperiments}}
 async function applyBackupData(d){if(!Array.isArray(d.entries))throw new Error('备份格式不正确');for(const s of ['entries','plans','summaries','tags','feedback','spaces','conversations','topics','insightReports','actionExperiments'])await dbClear(s);for(const x of d.entries||[])await dbPut('entries',x);for(const x of d.plans||[])await dbPut('plans',x);for(const x of d.summaries||[])await dbPut('summaries',x);for(const x of d.tags?.length?d.tags:DEFAULT_TAGS)await dbPut('tags',x);for(const x of d.feedback||[])await dbPut('feedback',x);for(const x of d.spaces||[])await dbPut('spaces',x);for(const x of d.conversations||[])await dbPut('conversations',x);for(const x of d.topics||[])await dbPut('topics',x);for(const x of d.insightReports||[])await dbPut('insightReports',x);for(const x of d.actionExperiments||[])await dbPut('actionExperiments',x);if(!(d.spaces||[]).length)await seedSpaces();await metaSet('profile',d.profile||{});await metaSet('pending',d.pending||null);await loadState();await migrateLegacyTopics();selectedTopicId=null;renderAll()}
 async function importData(file){const d=JSON.parse(await file.text());await applyBackupData(d);setStatus('#backupStatus','备份已导入。','success')}
 async function createSnapshot(auto=false){const data=await collectBackup(),snap={id:uid(),createdAt:nowISO(),auto,data};await dbPut('snapshots',snap);let all=(await dbGetAll('snapshots')).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));for(const x of all.slice(10))await dbDelete('snapshots',x.id);await metaSet('last_snapshot_at',snap.createdAt);if(!auto)setStatus('#backupStatus','已在手机本地创建恢复点。','success')}
@@ -460,7 +475,58 @@ async function saveSpace(space){await dbPut('spaces',space);const i=state.spaces
 async function saveTopic(topic){topic.updatedAt=nowISO();await dbPut('topics',topic);const i=state.topics.findIndex(x=>x.id===topic.id);if(i>=0)state.topics[i]=topic;else state.topics.push(topic);state.topics.sort((a,b)=>new Date(b.updatedAt||b.createdAt)-new Date(a.updatedAt||a.createdAt));scheduleLocalSnapshot()}
 async function saveConversation(msg){await dbPut('conversations',msg);state.conversations.push(msg);state.conversations.sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));scheduleLocalSnapshot()}
 function currentSpace(){return state.spaces.find(x=>x.id===selectedSpaceId)||state.spaces[0]}
-function spaceRelevantEntries(space,question){if(!space||space.id==='general')return selectHistory(question).relevant.concat(selectHistory(question).recent).slice(-100);const tagged=state.entries.filter(e=>(space.tagIds||[]).some(id=>(e.tagIds||[]).includes(id)));const q=grams(`${space.name} ${question}`);const scored=state.entries.filter(e=>!tagged.includes(e)).map(e=>{const eg=grams(`${e.text} ${followupText(e)} ${(e.tagIds||[]).map(tagName).join(' ')}`);let common=0;q.forEach(g=>{if(eg.has(g))common++});return[common,e]}).filter(x=>x[0]>0).sort((a,b)=>b[0]-a[0]).map(x=>x[1]);return [...new Map([...tagged,...scored].map(e=>[e.id,e])).values()].slice(-120)}
+function isPrivateRelationshipEntry(e){return (e.tagIds||[]).includes('love')||e.private===true||e.sensitive===true||/(暧昧|恋爱|情侣|男朋友|女朋友|分手|复合|亲吻|约会|感情关系)/.test(`${e.title||''} ${e.text||''} ${followupText(e)}`.slice(0,4500))}
+function assistantPermitsPrivate(space,explicit=false){return expertKind(space)==='relationship'||Boolean(explicit)}
+function assistantRelevantEntries(space,question,includePrivate=false){
+ const permitted=assistantPermitsPrivate(space,includePrivate);
+ const entries=state.entries.filter(e=>permitted||!isPrivateRelationshipEntry(e));
+ const role=expertKind(space),rule=EXPERTS[role]||{priority:[]};
+ const terms=grams(`${question||''} ${space.name||''}`);
+ const now=Date.now();
+ const scored=entries.map((e,i)=>{
+  const tags=e.tagIds||[],kind=e.structured?.kind||'',date=Date.parse(e.createdAt||'')||0;
+  const days=Math.max(0,(now-date)/86400000);
+  const text=String(`${e.title||''} ${e.text||''} ${followupText(e)} ${(tags||[]).map(tagName).join(' ')} ${kind}`).slice(0,2200);
+  const tg=grams(text);let matches=0;terms.forEach(t=>{if(tg.has(t))matches++});
+  const priorityTags=(rule.priority||[]).reduce((v,t)=>v+(tags.includes(t)?1:0),0);
+  const customTags=(space.tagIds||[]).reduce((v,t)=>v+(tags.includes(t)?1:0),0);
+  const kindBonus=role==='sleep'&&['sleep','nap','meal'].includes(kind)?12:role==='diet'&&kind==='meal'?14:role==='study'&&tags.some(t=>['study','reading','plan'].includes(t))?8:role==='relationship'&&tags.includes('love')?12:role==='general'&&kind?4:0;
+  const qScore=Math.min(matches,18)*3,recency=Math.max(0,10-days/5),important=e.importance==='high'?11:0;
+  return {e,score:qScore+priorityTags*7+customTags*5+kindBonus+recency+important,index:i};
+ }).sort((a,b)=>b.score-a.score || b.index-a.index);
+ // Include current context, high-priority records, and chronology around major events.
+ const seed=scored.slice(0,32).map(x=>x.e);
+ const nearby=[];
+ for(const e of seed.filter(e=>e.importance==='high').slice(0,8)){
+  const t=Date.parse(e.eventDate||e.createdAt);if(!Number.isFinite(t))continue;
+  nearby.push(...entries.filter(x=>Math.abs(Date.parse(x.eventDate||x.createdAt)-t)<=2*86400000).slice(-5));
+ }
+ const mostRecent=entries.slice(-12);
+ const ids=new Set();const result=[];
+ for(const e of [...seed,...nearby,...mostRecent]){if(!ids.has(e.id)){ids.add(e.id);result.push(e)}if(result.length>=52)break}
+ return result;
+}
+function assistantContext(space,question,includePrivate=false,includeOtherTopics=false){
+ const allowed=assistantPermitsPrivate(space,includePrivate);
+ const entries=state.entries.filter(e=>allowed||!isPrivateRelationshipEntry(e));
+ const selection=assistantRelevantEntries(space,question,includePrivate);
+ const kinds={sleep:0,nap:0,meal:0,other:0};const tags={};
+ for(const e of entries){const k=e.structured?.kind||'other';kinds[k]=(kinds[k]||0)+1;for(const id of e.tagIds||[])tags[tagName(id)]=(tags[tagName(id)]||0)+1}
+ const avg=key=>{const nums=entries.map(e=>e.metrics?.[key]).filter(v=>v!==null&&v!==undefined&&Number.isFinite(Number(v)));return nums.length?Number((nums.reduce((a,b)=>a+Number(b),0)/nums.length).toFixed(1)):null};
+ const domainSummary={totalRecords:entries.length,selectedRecords:selection.length,structuredCounts:kinds,tagCounts:tags,recordedAverages:{mood:avg('mood'),energy:avg('energy'),stress:avg('stress'),sleepHours:avg('sleep_hours')},note:'统计基于实际记录，缺失不等于正常；AI估算与用户填写可能并存；指标关联不代表因果。'};
+ const other=[];
+ if(includeOtherTopics){for(const t of state.topics.filter(t=>t.spaceId!==space.id).sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt))){
+   if(!allowed&&t.spaceId==='relationship')continue;
+   const msgs=state.conversations.filter(m=>topicIdForMessage(m)===t.id);
+   const last=msgs.filter(m=>m.role==='assistant').at(-1);if(!last)continue;
+   other.push({assistant:state.spaces.find(s=>s.id===t.spaceId)?.name||'其他专题',title:t.title,summary:String(last.data?.answer||last.text||'').slice(0,350)});
+   if(other.length>=5)break;
+ }}
+ return {selection,domainSummary,other,allowed};
+}
+function spaceRelevantEntries(space,question){return assistantRelevantEntries(space,question,false)}
+function assistantPlans(allowPrivate){return activePlansForAI().filter(p=>allowPrivate||!/(暧昧|恋爱|情侣|男朋友|女朋友|分手|复合|感情关系)/.test(`${p.title||''} ${p.goal||''}`))}
+
 function spaceTopics(spaceId){return state.topics.filter(t=>t.spaceId===spaceId).sort((a,b)=>new Date(b.updatedAt||b.createdAt)-new Date(a.updatedAt||a.createdAt))}
 function currentTopic(){return state.topics.find(t=>t.id===selectedTopicId&&t.spaceId===selectedSpaceId)||null}
 function selectTopic(id){selectedTopicId=id;$('#askText').value='';setStatus('#askStatus','');renderAsk()}
@@ -470,9 +536,15 @@ async function clearAsk(){const topic=currentTopic();if(!topic){setStatus('#askS
 async function checkWebSearchStatus(){try{const r=await fetch('/api/web-search',{cache:'no-store'});const d=await r.json();webSearchAvailable=Boolean(r.ok&&d.configured);$('#askWebStatus').textContent=webSearchAvailable?'联网搜索已就绪 · 按需开启':'尚未配置联网搜索：在 Vercel 添加 TAVILY_API_KEY';}catch{webSearchAvailable=false;$('#askWebStatus').textContent='联网搜索未就绪，请检查部署 /api/web-search 接口。'}}
 function safeWebUrl(url){try{const u=new URL(url);return ['https:','http:'].includes(u.protocol)?u.href:null}catch{return null}}
 function renderAsk(){if(!$('#askSpaceList')||!state.spaces.length)return;const sp=currentSpace();if(!sp){selectedSpaceId=state.spaces[0].id;return renderAsk()}
- $('#askSpaceTitle').textContent=sp.name;$('#askSpaceEyebrow').textContent=sp.system?'系统专题':'自定义专题';
- $('#askSpaceList').innerHTML=state.spaces.map(x=>`<button class="space-btn ${x.id===sp.id?'active':''}" data-id="${x.id}"><span>${escapeHTML(x.name)}</span><small>${escapeHTML(x.description||'')}</small></button>`).join('');
- $$('#askSpaceList .space-btn').forEach(b=>b.onclick=()=>{selectedSpaceId=b.dataset.id;selectedTopicId=null;$('#askText').value='';renderAsk()});
+ $('#askSpaceTitle').textContent=sp.name;const role=expertKind(sp),expert=EXPERTS[role];
+ $('#askSpaceEyebrow').textContent=expert?'专业分析视角 · 共享记忆':'自定义专题 · 共享记忆';
+ const assistants=state.spaces.filter(x=>EXPERTS[expertKind(x)]),customs=state.spaces.filter(x=>!EXPERTS[expertKind(x)]);
+ const spaceButton=x=>{const a=EXPERTS[expertKind(x)];return `<button class="space-btn assistant-btn ${x.id===sp.id?'active':''}" data-id="${escapeHTML(x.id)}"><span class="assistant-icon">${a?.icon||'◇'}</span><span class="assistant-text"><strong>${escapeHTML(a?.label||x.name)}</strong><small>${escapeHTML(a?.subtitle||x.description||'自定义专题')}</small></span></button>`};
+ $('#askSpaceList').innerHTML=`<div class="ask-space-section-title">专业助理 · 共用个人记忆</div>${assistants.map(spaceButton).join('')}${customs.length?`<div class="ask-space-section-title">我的专题</div>${customs.map(spaceButton).join('')}`:''}`;
+ $$('#askSpaceList .space-btn').forEach(b=>b.onclick=()=>{selectedSpaceId=b.dataset.id;selectedTopicId=null;$('#askText').value='';$('#askPrivateContext').checked=false;$('#askOtherTopics').checked=false;renderAsk()});
+ const guide=$('#assistantGuide');if(guide){const examples=expert?.examples||['针对我的长期记录，帮我做具体分析。'];guide.innerHTML=`<strong>${escapeHTML(expert?.label||sp.name)} · 分析方式</strong><p>${escapeHTML(expert?.subtitle||sp.description||'优先读取本专题相关历史，并参考其他生活领域。')}</p><div class="assistant-examples">${examples.map(q=>`<button type="button" class="assistant-example">${escapeHTML(q)}</button>`).join('')}</div><small>同一套记录、标签、睡眠饮食数据；当前话题独立保存。AI会区分事实与推测，必要时先追问。</small>`;guide.querySelectorAll('.assistant-example').forEach(btn=>btn.onclick=()=>{$('#askText').value=btn.textContent;$('#askComposeBox').scrollIntoView({behavior:'smooth',block:'center'});$('#askText').focus()})}
+ const sensitiveRow=$('#askPrivateContextRow');if(sensitiveRow)sensitiveRow.classList.toggle('hidden',role==='relationship');
+ const preview=$('#askEvidencePreview');if(preview){const allow=assistantPermitsPrivate(sp,$('#askPrivateContext').checked);const count=state.entries.filter(e=>allow||!isPrivateRelationshipEntry(e)).length;preview.textContent=`当前允许检索 ${count} 条生活记录 · 提问时最多精选 52 条相关证据${!allow?' · 默认排除关系私密记录':''}`;}
  const ts=spaceTopics(sp.id),topic=currentTopic();
  $('#askTopicList').innerHTML=ts.length?ts.map(t=>{const cnt=state.conversations.filter(m=>topicIdForMessage(m)===t.id&&m.role==='user').length;return `<div class="ask-topic-item ${t.id===topic?.id?'active':''}"><button class="ask-topic-open" data-id="${escapeHTML(t.id)}"><span class="ask-topic-title">${escapeHTML(t.title)}</span><span class="ask-topic-sub">${cnt} 次提问 · ${escapeHTML(new Date(t.updatedAt||t.createdAt).toLocaleDateString())}</span>${t.summary?`<span class="ask-topic-excerpt">${escapeHTML(t.summary).slice(0,75)}</span>`:''}</button><button class="ask-topic-delete" data-id="${escapeHTML(t.id)}" title="删除该话题" aria-label="删除该话题">×</button></div>`}).join(''):'<div class="ask-topic-empty">还没有话题。输入问题，就会自动创建一个。</div>';
  $$('#askTopicList .ask-topic-open').forEach(b=>b.onclick=()=>selectTopic(b.dataset.id));$$('#askTopicList .ask-topic-delete').forEach(b=>b.onclick=()=>removeTopic(b.dataset.id));
@@ -480,6 +552,7 @@ function renderAsk(){if(!$('#askSpaceList')||!state.spaces.length)return;const s
  $('#askActiveTopic').textContent=topic?`当前话题：${topic.title}`:'新话题 · 只关联当前问题的上下文';
  const msgs=topic?state.conversations.filter(m=>topicIdForMessage(m)===topic.id):[];
  $('#askThread').innerHTML=msgs.length?msgs.map(renderChatMessage).join(''):'<div class="ask-empty"><b>开始一个新话题</b><p>每个话题独立保存，可以随时从上方切换。原来的问题不会丢失。</p></div>';
+ $('#askThread').querySelectorAll('.ask-record-reference').forEach(b=>b.onclick=()=>openRecordDetail(b.dataset.record));
  $('#askThread').scrollTop=$('#askThread').scrollHeight;
  $('#askNewTopicBtn').disabled=askBusy;$('#askSendBtn').disabled=askBusy;
  renderImagePreview('ask')
@@ -488,7 +561,7 @@ function renderChatMessage(m){if(m.role==='user')return `<div class="chat-row us
  const d=m.data||{};
  if(d.need_clarification)return `<div class="chat-row assistant"><div class="chat-bubble"><div class="eyebrow">Jarvis · 需要补充</div>${d.answer?`<p>${escapeHTML(d.answer)}</p>`:''}${(d.questions||[]).map((q,i)=>`<div class="clarify-q"><b>${i+1}. ${escapeHTML(q.question||q)}</b>${q.reason?`<small>${escapeHTML(q.reason)}</small>`:''}</div>`).join('')}</div></div>`;
  const sources=Array.isArray(m.webSources)?m.webSources:[];
- return `<div class="chat-row assistant"><div class="chat-bubble"><div class="eyebrow">JARVIS ${sources.length?'· 已联网检索':''}</div>${d.answer?`<p class="chat-answer">${escapeHTML(d.answer)}</p>`:''}${sources.length?`<details class="chat-web-sources"><summary>本次网络来源 · ${sources.length} 条（点开核对）</summary><ol>${sources.map((x,i)=>{const url=safeWebUrl(x.url);return url?`<li><a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">[${i+1}] ${escapeHTML(x.title||url)}</a></li>`:''}).join('')}</ol><small>检索结果是网页摘要，不代表已经逐字核验全文；回答中的 [序号] 对应这里的来源。</small></details>`:''}${d.evidence?.length?`<details><summary>我为什么这样判断</summary><ul>${d.evidence.map(x=>`<li>${escapeHTML(x)}</li>`).join('')}</ul></details>`:''}${d.psychology?`<details class="chat-theory"><summary>${escapeHTML(d.psychology.theory||'心理学视角')}</summary><p>${escapeHTML(d.psychology.analysis||'')}</p>${d.psychology.limit?`<small>${escapeHTML(d.psychology.limit)}</small>`:''}</details>`:''}${d.alternatives?.length?`<details><summary>其他可能性</summary><ul>${d.alternatives.map(x=>`<li>${escapeHTML(x)}</li>`).join('')}</ul></details>`:''}${d.actions?.length?`<details class="chat-actions"><summary>具体可做的事（${d.actions.length}）</summary><ol>${d.actions.map(x=>`<li>${escapeHTML(typeof x==='string'?x:x.action||'')}</li>`).join('')}</ol></details>`:''}${d.caution?`<details><summary>注意事项</summary><small class="chat-caution">${escapeHTML(d.caution)}</small></details>`:''}</div></div>`
+ return `<div class="chat-row assistant"><div class="chat-bubble"><div class="eyebrow">JARVIS ${sources.length?'· 已联网检索':''}</div>${d.answer?`<p class="chat-answer">${escapeHTML(d.answer)}</p>`:''}${sources.length?`<details class="chat-web-sources"><summary>本次网络来源 · ${sources.length} 条（点开核对）</summary><ol>${sources.map((x,i)=>{const url=safeWebUrl(x.url);return url?`<li><a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">[${i+1}] ${escapeHTML(x.title||url)}</a></li>`:''}).join('')}</ol><small>检索结果是网页摘要，不代表已经逐字核验全文；回答中的 [序号] 对应这里的来源。</small></details>`:''}${d.evidence?.length?`<details><summary>我为什么这样判断</summary><ul>${d.evidence.map(x=>`<li>${escapeHTML(x)}</li>`).join('')}</ul></details>`:''}${d.evidenceRefs?.length?`<details class="ask-references"><summary>查看引用的原始记录（${d.evidenceRefs.length}）</summary>${d.evidenceRefs.map(x=>`<button type="button" class="ask-record-reference" data-record="${escapeHTML(x.id)}">${escapeHTML(x.note||'查看原始记录')} →</button>`).join('')}</details>`:''}${d.psychology?`<details class="chat-theory"><summary>${escapeHTML(d.psychology.theory||'心理学视角')}</summary><p>${escapeHTML(d.psychology.analysis||'')}</p>${d.psychology.limit?`<small>${escapeHTML(d.psychology.limit)}</small>`:''}</details>`:''}${d.alternatives?.length?`<details><summary>其他可能性</summary><ul>${d.alternatives.map(x=>`<li>${escapeHTML(x)}</li>`).join('')}</ul></details>`:''}${d.actions?.length?`<details class="chat-actions"><summary>具体可做的事（${d.actions.length}）</summary><ol>${d.actions.map(x=>`<li>${escapeHTML(typeof x==='string'?x:x.action||'')}</li>`).join('')}</ol></details>`:''}${d.caution?`<details><summary>注意事项</summary><small class="chat-caution">${escapeHTML(d.caution)}</small></details>`:''}</div></div>`
 }
 async function createSpace(){const name=prompt('专题名称：例如 公务员考试、减脂、工作发展');if(!name?.trim())return;const tagText=prompt('优先关联哪些现有标签？可留空；多个用逗号分隔。','');const names=(tagText||'').split(/[,，]/).map(x=>x.trim()).filter(Boolean),tagIds=tagIdsFromNames(names);const sp={id:`space-${uid()}`,name:name.trim(),system:false,tagIds,description:tagIds.length?`优先读取：${tagIds.map(tagName).join('、')}`:'根据专题名称和问题自动检索相关记录',createdAt:nowISO()};await saveSpace(sp);selectedSpaceId=sp.id;selectedTopicId=null;renderAsk()}
 async function askJarvis(){const question=$('#askText').value.trim();if((!question&&!askImage)||askBusy)return;const sp=currentSpace();if(!sp)return;
@@ -501,13 +574,13 @@ async function askJarvis(){const question=$('#askText').value.trim();if((!questi
   let vision=askImage?.vision||null;if(askImage&&!vision)vision=await recognizeImage('ask');
   let topic=activeTopic;
   if(!topic){topic={id:`topic-${uid()}`,spaceId:sp.id,title:(question||vision?.summary||'图片分析').replace(/\s+/g,' ').slice(0,32),summary:'',createdAt:nowISO(),updatedAt:nowISO()};await saveTopic(topic);createdTopic=topic;selectedTopicId=topic.id;}
-  const text=question||'请分析这张图片。';const rel=spaceRelevantEntries(sp,text||vision?.summary||'图片');const h=selectHistory(`${sp.name} ${text}`);
+  const text=question||'请分析这张图片。';const selectedContext=assistantContext(sp,`${text} ${vision?.summary||''}`,$('#askPrivateContext').checked,$('#askOtherTopics').checked);
   // History is scoped to the current topic, never to all questions under the same space.
   const history=state.conversations.filter(m=>topicIdForMessage(m)===topic.id).slice(-16).map(m=>({role:m.role,text:m.text,data:m.role==='assistant'?m.data:null}));
   const userMsg={id:uid(),spaceId:sp.id,topicId:topic.id,role:'user',text,imageThumb:askImage?.dataUrl||null,image_context:vision||null,createdAt:nowISO()};
   await saveConversation(userMsg);persistedMsg=userMsg;renderAsk();
   setStatus('#askStatus',webSources.length?'已找到网络来源，正在结合你的记录分析…':'正在结合你的记录分析…');
-  const d=await api('/api/ask',{space:{name:sp.name,description:sp.description,tag_names:(sp.tagIds||[]).map(tagName)},question:text,image_context:vision,profile:state.profile,summaries:state.summaries.slice(-6),active_plans:activePlansForAI(),recent:serializeEntries(h.recent),relevant:serializeEntries(rel),conversation_history:history,web_sources:webSources});
+  const d=await api('/api/ask',{assistant_kind:expertKind(sp),space:{name:sp.name,description:sp.description,tag_names:(sp.tagIds||[]).map(tagName)},question:text,image_context:vision,profile:selectedContext.allowed?state.profile:{goals:state.profile?.goals,job:state.profile?.job,schedule:state.profile?.schedule},summaries:selectedContext.allowed?state.summaries.slice(-3):[],active_plans:assistantPlans(selectedContext.allowed),selected_evidence:serializeEntries(selectedContext.selection).map((e,i)=>({...e,id:selectedContext.selection[i].id})),domain_summary:selectedContext.domainSummary,other_topic_context:selectedContext.other,conversation_history:history,web_sources:webSources});
   await saveConversation({id:uid(),spaceId:sp.id,topicId:topic.id,role:'assistant',text:d.answer||'',data:d,webSources,createdAt:nowISO()});
   topic.summary=(d.answer||d.questions?.[0]?.question||'').slice(0,100);await saveTopic(topic);
   $('#askText').value='';$('#askWebToggle').checked=false;clearImageState('ask');renderAsk();setStatus('#askStatus',d.need_clarification?'Jarvis 需要补充信息，请在当前话题继续回答。':'已保存至当前话题。','success');
@@ -746,7 +819,7 @@ function bindEvents(){
  $('#modalSaveOnly').onclick=()=>saveOnly($('#recordModalText').value,{},'modal');$('#modalAnalyze').onclick=()=>analyzeText($('#recordModalText').value,{},'modal');
  $('#quickImageBtn').onclick=()=>$('#quickImageInput').click();$('#quickImageInput').onchange=e=>chooseImage('dashboard',e.target.files[0]);$('#quickRecognizeBtn').onclick=()=>recognizeImage('dashboard');
  $('#modalImageBtn').onclick=()=>$('#modalImageInput').click();$('#modalImageInput').onchange=e=>chooseImage('modal',e.target.files[0]);$('#modalRecognizeBtn').onclick=()=>recognizeImage('modal');
- $('#askImageBtn').onclick=()=>$('#askImageInput').click();$('#askImageInput').onchange=e=>chooseImage('ask',e.target.files[0]);$('#askSendBtn').onclick=askJarvis;$('#newSpaceBtn').onclick=createSpace;$('#clearAskBtn').onclick=clearAsk;$('#askNewTopicBtn').onclick=startNewTopic;$('#askJumpCompose').onclick=()=>{$('#askComposeBox').scrollIntoView({behavior:'smooth',block:'center'});$('#askText').focus()};
+ $('#askImageBtn').onclick=()=>$('#askImageInput').click();$('#askImageInput').onchange=e=>chooseImage('ask',e.target.files[0]);$('#askSendBtn').onclick=askJarvis;$('#newSpaceBtn').onclick=createSpace;$('#clearAskBtn').onclick=clearAsk;$('#askNewTopicBtn').onclick=startNewTopic;$('#askJumpCompose').onclick=()=>{$('#askComposeBox').scrollIntoView({behavior:'smooth',block:'center'});$('#askText').focus()}; ['#askPrivateContext','#askOtherTopics'].forEach(id=>{$(id).onchange=renderAsk});$('#askText').addEventListener('input',()=>{$('#askEvidencePreview').textContent='发送提问时，将按问题匹配相关历史（最多52条原文），并汇总其他可用记录。'});
  $('#quickNewTagBtn').onclick=()=>openCreateTag('quick');$('#modalNewTagBtn').onclick=()=>openCreateTag('modal');
  $('#submitPendingBtn').onclick=submitPending;$('#saveEntryTagsBtn').onclick=saveEditedTags;$('#newTagBtn').onclick=()=>openCreateTag('settings');$('#tagEditNewTagBtn').onclick=()=>openCreateTag('edit');$('#createTagBtn').onclick=createTag;
  $('#recordSearch').oninput=renderRecords;$('#recordRange').onchange=renderRecords;$('#recordStatus').onchange=renderRecords;
